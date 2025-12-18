@@ -15,5 +15,8 @@ alienos:
 		echo "the file is not multiboot"; \
 	fi
 
+qemu: alienos
+	qemu-system-i386 -cdrom alienos.iso
+
 clean:
 	rm -rf isodir alienos.bin alienos.iso boot.o kernel.o
