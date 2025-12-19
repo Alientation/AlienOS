@@ -1,6 +1,7 @@
 #include "terminal.h"
 
 #include <string.h>
+#include <stdarg.h>
 
 #define VGA_WIDTH   80
 #define VGA_HEIGHT  25
@@ -62,7 +63,7 @@ void terminal_putchar (char c)
 	}
 }
 
-void terminal_write (const char* data, size_t size)
+void terminal_write (const char *data, size_t size)
 {
 	for (size_t i = 0; i < size; i++)
     {
@@ -70,7 +71,130 @@ void terminal_write (const char* data, size_t size)
     }
 }
 
-void terminal_writestring (const char* data)
+void terminal_writestring (const char *data)
 {
 	terminal_write (data, strlen (data));
+}
+
+void terminal_printf (const char *format, ...)
+{
+    va_list params;
+    va_start (params, format);
+
+    const size_t len = strlen (format);
+    for (size_t i = 0; i < len; i++)
+    {
+        if (format[i] != '%' || i + 1 >= len)
+        {
+            terminal_putchar (format[i]);
+			continue;
+        }
+
+		const char c = format[i + 1];
+        switch (c)
+        {
+            case 's':
+				i++;
+                terminal_writestring (va_arg (params, char *));
+                break;
+
+            case 'c':
+				i++;
+                terminal_putchar ((char) va_arg (params, int));
+                break;
+
+            case 'd':
+            {
+				i++;
+                int val = va_arg (params, int);
+                if (val == 0)
+                {
+                    terminal_putchar ('0');
+                    break;
+                }
+
+				/* Do not print leading zeros. */
+                size_t msnz = 0;
+                char digits[10];
+                if (val > 0)
+                {
+                    for (msnz = 0; msnz < sizeof (digits) / sizeof (digits[0]) && val != 0; msnz++)
+                    {
+                        const int d = val % 10;
+                        digits[msnz] = '0' + d;
+                        val /= 10;
+                    }
+                }
+                else
+                {
+                    for (msnz = 0; msnz < sizeof (digits) / sizeof (digits[0]) && val != 0; msnz++)
+                    {
+                        const int d = (10 - (val % 10));
+                        digits[msnz] = '0' + d;
+                        val /= 10;
+                    }
+                }
+
+                if (val < 0)
+                {
+                    terminal_putchar ('-');
+                }
+
+                for (size_t i = msnz; i != 0; i--)
+                {
+                    terminal_putchar (digits[i - 1]);
+                }
+                break;
+            }
+
+            case 'x':
+            case 'X':
+            {
+				i++;
+                unsigned int val = va_arg (params, unsigned int);
+                const char base = (c == 'x' ? 'a' : 'A');
+
+                terminal_putchar ('0');
+                terminal_putchar ('x' - 'a' + base);
+                if (val == 0)
+                {
+                    terminal_putchar ('0');
+                    break;
+                }
+
+				/* Do not print leading zeros. */
+                size_t msnz = 0;
+                char digits[8];
+                for (msnz = 0; msnz < sizeof (digits) / sizeof (digits[0]) && val != 0; msnz++)
+                {
+                    int nib = val % 16;
+					val >>= 4;
+                    if (nib < 10)
+                    {
+                        digits[msnz] = '0' + nib;
+                    }
+                    else
+                    {
+                        digits[msnz] = base + (nib - 10);
+                    }
+                }
+
+                for (size_t i = msnz; i != 0; i--)
+                {
+                    terminal_putchar (digits[i - 1]);
+                }
+                break;
+            }
+            case '%':
+				i++;
+                terminal_putchar ('%');
+				break;
+			default:
+				/* Following invalid character will be displayed right after. */
+                terminal_putchar ('%');
+				break;
+        }
+    }
+
+    va_end (params);
 }
