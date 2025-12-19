@@ -8,7 +8,7 @@ INCLUDES = -Isrc/include -Ilibc/include
 
 # Flags
 CFLAGS = -std=gnu99 -ffreestanding -O2 -Wall -Wextra $(INCLUDES)
-LDFLAGS = -ffreestanding -O2 -nostdlib -lgcc -T linker.ld
+LDFLAGS = -ffreestanding -fno-builtin -nostdinc -O2 -nostdlib -lgcc -T linker.ld
 
 # Sources
 KERNEL_CSRCS = $(wildcard src/kernel/*.c)

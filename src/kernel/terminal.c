@@ -1,5 +1,7 @@
 #include "terminal.h"
 
+#include <string.h>
+
 #define VGA_WIDTH   80
 #define VGA_HEIGHT  25
 #define VGA_MEMORY  0xB8000
@@ -66,16 +68,6 @@ void terminal_write (const char* data, size_t size)
     {
 		terminal_putchar (data[i]);
     }
-}
-
-size_t strlen(const char* str)
-{
-	size_t len = 0;
-	while (str[len])
-    {
-		len++;
-    }
-	return len;
 }
 
 void terminal_writestring (const char* data)
