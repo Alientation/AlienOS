@@ -1,22 +1,68 @@
-.PHONY: qemu clean
+# Tools
+CC = i686-elf-gcc
+AR = i686-elf-ar
+AS = i686-elf-as
 
-alienos:
-	i686-elf-as boot.s -o build/boot.o
-	i686-elf-gcc -c kernel.c -o build/kernel.o -std=gnu99 -ffreestanding -O2 -Wall -Wextra
-	i686-elf-gcc -T linker.ld -o alienos.bin -ffreestanding -O2 -nostdlib build/boot.o build/kernel.o -lgcc
+# Include paths to kernel and c library headers
+INCLUDES = -Isrc/include -Ilibc/include
 
-	@if grub-file --is-x86-multiboot alienos.bin; then \
-		echo "multiboot confirmed"; \
-		mkdir -p build/isodir/boot/grub; \
-		cp alienos.bin build/isodir/boot/alienos.bin; \
-		cp grub.cfg build/isodir/boot/grub/grub.cfg; \
-		grub-mkrescue -o alienos.iso build/isodir; \
+# Flags
+CFLAGS = -std=gnu99 -ffreestanding -O2 -Wall -Wextra $(INCLUDES)
+LDFLAGS = -ffreestanding -O2 -nostdlib -lgcc -T linker.ld
+
+# Sources
+KERNEL_CSRCS = $(wildcard src/kernel/*.c)
+KERNEL_ASRCS = $(wildcard src/kernel/*.s)
+LIBC_SRCS = $(wildcard libc/src/*.c)
+
+# Objects
+KERNEL_OBJS := $(patsubst src/kernel/%.c, build/kernel/%.o, $(KERNEL_CSRCS))
+KERNEL_OBJS += $(patsubst src/kernel/%.s, build/kernel/%.o, $(KERNEL_ASRCS))
+LIBC_OBJS := $(patsubst libc/src/%.c, build/libc/%.o, $(LIBC_SRCS))
+
+.PHONY: all clean qemu build/kernel build/libc build/isodir/boot/grub
+
+all: iso/alienos.iso
+
+# Create build directories
+build/kernel build/libc build/isodir/boot/grub:
+	@mkdir -p $@
+
+# Build c library archive
+build/libk.a: $(LIBC_OBJS)
+	$(AR) rcs $@ $(LIBC_OBJS)
+
+# Kernel C files
+build/kernel/%.o: src/kernel/%.c | build/kernel
+	$(CC) -c $< -o $@ $(CFLAGS)
+
+# Kernel Assembly files
+build/kernel/%.o: src/kernel/%.s | build/kernel
+	$(AS) $< -o $@
+
+# C Library files
+build/libc/%.o: libc/src/%.c | build/libc
+	$(CC) -c $< -o $@ $(CFLAGS)
+
+# Link
+iso/alienos.bin: $(KERNEL_OBJS) build/libk.a
+	$(CC) -o $@ $(KERNEL_OBJS) build/libk.a $(LDFLAGS) -lgcc
+
+# Create ISO
+iso/alienos.iso: iso/alienos.bin | build/isodir/boot/grub
+	@if grub-file --is-x86-multiboot iso/alienos.bin; then \
+		echo "Multiboot confirmed"; \
+		cp iso/alienos.bin build/isodir/boot/alienos.bin; \
+		cp iso/grub.cfg build/isodir/boot/grub/grub.cfg; \
+		grub-mkrescue -o $@ build/isodir; \
 	else \
-		echo "the file is not multiboot"; \
+		echo "Error: The file is not multiboot"; \
+		exit 1; \
 	fi
 
-qemu: alienos
-	qemu-system-i386 -cdrom alienos.iso
+# Start QEMU
+qemu: all
+	qemu-system-i386 -cdrom iso/alienos.iso
 
 clean:
-	rm -rf build alienos.bin alienos.iso
+	rm -rf build iso/alienos.bin iso/alienos.iso
