@@ -35,7 +35,7 @@ static inline uint16_t vga_entry (unsigned char uc, uint8_t color)
 	return (uint16_t) uc | (uint16_t) color << 8;
 }
 
-void terminal_initialize (void);
+void terminal_init (void);
 
 void terminal_setcolor (uint8_t color);
 

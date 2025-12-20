@@ -2,7 +2,6 @@
 #include "terminal.h"
 #include "io.h"
 
-#include <stdbool.h>
 #include <stddef.h>
 
 /* Check if the compiler thinks we are targeting the wrong operating system. */
@@ -18,10 +17,16 @@
 
 void kernel_main(void)
 {
-	init_serial (COMPort_1, 3, COMDataBits_7, COMStopBits_1, COMParityBits_NONE);
+	io_init_serial (COMPort_1, 3, COMDataBits_7, COMStopBits_1, COMParityBits_NONE);
+	terminal_init();
 
-	terminal_initialize();
+	io_outb (COMPort_1, 0xAB);
+	if (io_inb (COMPort_1) != 0xAB)
+	{
+		terminal_writestring ("FAILED\n\n");
+	}
 
-	// terminal_writestring("Hello, kernel World!\nWelcome to AlienOS\n");
-	terminal_printf("Hello, kernel World!\nWelcome to AlienOS %s.%c.%d.%x.%X.%%\n", "Hi", 'c', 42, 0x123abc, 0X123ABC);
+
+	terminal_writestring("Hello ");
+	terminal_printf("kernel World!\nWelcome to AlienOS %s.%c.%d.%x.%X.%%\n", "Hi", 'c', 42, 0x123abc, 0X123ABC);
 }

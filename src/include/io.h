@@ -1,6 +1,7 @@
 #ifndef SRC_INCLUDE_IO_H
 #define SRC_INCLUDE_IO_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -47,13 +48,13 @@ enum COMParityBits
 };
 
 /* Write a byte to a port. */
-static inline void outb (enum COMPortAddress port, uint8_t val)
+static inline void io_outb (enum COMPortAddress port, uint8_t val)
 {
     asm volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
 }
 
 /* Write a byte from a port. */
-static inline uint8_t inb (enum COMPortAddress port)
+static inline uint8_t io_inb (enum COMPortAddress port)
 {
     uint8_t ret;
     asm volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port));
@@ -61,8 +62,8 @@ static inline uint8_t inb (enum COMPortAddress port)
 }
 
 /* Initialize a COM port. */
-void init_serial (enum COMPortAddress port, uint16_t divisor, enum COMDataBits databits,
-                  enum COMStopBits stopbits, enum COMParityBits paritybits);
+void io_init_serial (enum COMPortAddress port, uint16_t divisor, enum COMDataBits databits,
+                     enum COMStopBits stopbits, enum COMParityBits paritybits);
 
 
 #endif /* SRC_INCLUDE_IO_H */
