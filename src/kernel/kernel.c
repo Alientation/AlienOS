@@ -1,5 +1,6 @@
 #include "kernel.h"
 #include "terminal.h"
+#include "io.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -14,8 +15,11 @@
 #error "Needs to be compiled with a ix86-elf compiler"
 #endif
 
+
 void kernel_main(void)
 {
+	init_serial (COMPort_1, 3, COMDataBits_7, COMStopBits_1, COMParityBits_NONE);
+
 	terminal_initialize();
 
 	// terminal_writestring("Hello, kernel World!\nWelcome to AlienOS\n");
