@@ -28,4 +28,32 @@ void io_init_serial (enum COMPortAddress port, uint16_t divisor, enum COMDataBit
 
     /* Set DLAB to 0, set corresponding data, stop, and parity bits in the Line Control register. */
     io_outb (port + LINE_CONTROL, (databits & 0b11) | ((stopbits & 0b1) << 2) | ((paritybits & 0b111) << 3));
+
+    /* Set interrupt trigger level at 14 bytes and clear both transmit/receive FIFO buffers. */
+    io_outb (port + WRITE_FIFO_CONTROL, 0b11000111);
+
+    // TODO: TEMP SET LOOPBACK MODE
+    io_outb (port + MODEM_CONTROL, 0b11110);
+}
+
+bool io_has_received_data (enum COMPortAddress port)
+{
+    return io_inb (port + READ_LINE_STATUS) & 0b1;          /* Read Data Ready (DR) bit. */
+}
+
+bool io_innextb (enum COMPortAddress port, uint8_t *data)
+{
+    const uint32_t MAX_SPIN_ITERATIONS = 0xFFFF;
+    for (uint32_t i = 0; i < MAX_SPIN_ITERATIONS && !io_has_received_data (port); i++)
+    {
+        continue;
+    }
+
+    if (!io_has_received_data (port))
+    {
+        return false;
+    }
+
+    *data = io_inb (port);
+    return true;
 }

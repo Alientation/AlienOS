@@ -21,9 +21,15 @@ void kernel_main(void)
 	terminal_init();
 
 	io_outb (COMPort_1, 0xAB);
-	if (io_inb (COMPort_1) != 0xAB)
+
+	uint8_t data = 0;
+	if (!io_innextb (COMPort_1, &data))
 	{
-		terminal_writestring ("FAILED\n\n");
+		terminal_writestring ("FAILED SPIN ITERATIONS\n\n");
+	}
+	else if (data != 0xAB)
+	{
+		terminal_writestring ("FAILED DATA MATCH\n\n");
 	}
 
 

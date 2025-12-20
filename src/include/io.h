@@ -47,13 +47,13 @@ enum COMParityBits
     COMParityBits_SPACE = 0b111,        /* Parity bit is always 0. */
 };
 
-/* Write a byte to a port. */
+/* Write byte to port. */
 static inline void io_outb (enum COMPortAddress port, uint8_t val)
 {
     asm volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
 }
 
-/* Write a byte from a port. */
+/* Read byte from port. */
 static inline uint8_t io_inb (enum COMPortAddress port)
 {
     uint8_t ret;
@@ -65,5 +65,11 @@ static inline uint8_t io_inb (enum COMPortAddress port)
 void io_init_serial (enum COMPortAddress port, uint16_t divisor, enum COMDataBits databits,
                      enum COMStopBits stopbits, enum COMParityBits paritybits);
 
+/* Whether the buffer contains received data. */
+bool io_has_received_data (enum COMPortAddress port);
+
+/* Read the next byte received by the port. Spins until we receive a byte or we reach max iterations.
+   Returns an error (false) if we hit max iterations. */
+bool io_innextb (enum COMPortAddress port, uint8_t *data);
 
 #endif /* SRC_INCLUDE_IO_H */
