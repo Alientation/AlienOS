@@ -1,6 +1,7 @@
 #ifndef SRC_INCLUDE_TERMINAL_H
 #define SRC_INCLUDE_TERMINAL_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
 
@@ -44,7 +45,11 @@ void terminal_putchar (const char c);
 
 void terminal_write (const char * const data, const size_t size);
 
-void terminal_writestring (const char * const data);
+void terminal_writestr (const char * const data);
+
+void terminal_writeint (const uint32_t d);
+
+void terminal_writebool (const bool b);
 
 void terminal_printf (const char * const format, ...);
 

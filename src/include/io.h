@@ -90,8 +90,27 @@ void io_serial_set_loopback (const enum COMPort port, const bool loopback);
    Returns an error (false) if we hit max iterations. */
 bool io_serial_nextinb (const enum COMPort port, uint8_t * const data);
 
-/* Printf to a serial port. */
+/* Write C string to serial port. */
+void io_serial_outstr (const enum COMPort port, const char *str);
+
+/* Write int to serial port. */
+void io_serial_outint (const enum COMPort port, int32_t d);
+
+/* Write bool to serial port. */
+void io_serial_outbool (const enum COMPort port, bool b);
+
+/* Print format to a serial port. */
 void io_serial_printf (const enum COMPort port, const char * const format, ...);
+
+/* Write C string. */
+void io_writestr (void (*output_char)(const char), const char *str);
+
+/* Write integer. */
+void io_writeint (void (*output_char)(const char), int32_t d);
+
+/* Write bool. */
+void io_writebool (void (*output_char)(const char), bool b);
+
 void io_printf (void (*output_char)(const char), const char *format, va_list params);
 
 #endif /* SRC_INCLUDE_IO_H */

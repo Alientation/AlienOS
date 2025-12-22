@@ -72,9 +72,19 @@ void terminal_write (const char * const data, const size_t size)
     }
 }
 
-void terminal_writestring (const char * const data)
+void terminal_writestr (const char * const data)
 {
 	terminal_write (data, strlen (data));
+}
+
+void terminal_writeint (const uint32_t d)
+{
+	io_writeint (terminal_putchar, d);
+}
+
+void terminal_writebool (const bool b)
+{
+	io_writebool (terminal_putchar, b);
 }
 
 void terminal_printf (const char * const format, ...)

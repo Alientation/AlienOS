@@ -23,11 +23,11 @@ void test_io (void)
 	uint8_t data = 0;
 	if (!io_serial_nextinb (COMPort_1, &data))
 	{
-		terminal_writestring ("FAILED SPIN ITERATIONS\n\n");
+		terminal_writestr ("FAILED SPIN ITERATIONS\n\n");
 	}
 	else if (data != 0xAB)
 	{
-		terminal_writestring ("FAILED DATA MATCH\n\n");
+		terminal_writestr ("FAILED DATA MATCH\n\n");
 	}
 
 	io_serial_set_loopback (COMPort_1, false);
@@ -42,12 +42,16 @@ void kernel_main(void)
 
 	test_io ();
 
-	io_serial_outb (COMPort_1, 'a');
-	io_serial_outb (COMPort_1, 'b');
-	io_serial_outb (COMPort_1, 'c');
-	io_serial_outb (COMPort_1, '\n');
+	io_serial_outstr (COMPort_1, "abc\n");
+	io_serial_outint (COMPort_1, 206);
+	io_serial_outstr (COMPort_1, "\n");
+	io_serial_outint (COMPort_1, -206);
+	io_serial_outstr (COMPort_1, "\n");
+	io_serial_outbool (COMPort_1, false);
+	io_serial_outstr (COMPort_1, "\n");
+	io_serial_outbool (COMPort_1, true);
+	io_serial_outstr (COMPort_1, "\n");
 
-
-	terminal_writestring("Hello ");
+	terminal_writestr("Hello ");
 	terminal_printf("kernel World!\nWelcome to AlienOS %s.%c.%d.%x.%X.%%\n", "Hi", 'c', -42, 0x123abc, 0X123ABC);
 }

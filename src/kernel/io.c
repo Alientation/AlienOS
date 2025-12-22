@@ -93,34 +93,95 @@ IO_COMN_OUTB(6)
 IO_COMN_OUTB(7)
 IO_COMN_OUTB(8)
 
-#undef IO_COMN_OUTB
+static void (*io_outb_map[])(const char c) =
+{
+    io_com1_outb,
+    io_com2_outb,
+    io_com3_outb,
+    io_com4_outb,
+    io_com5_outb,
+    io_com6_outb,
+    io_com7_outb,
+    io_com8_outb,
+};
 
+void io_serial_outstr (const enum COMPort port, const char *str)
+{
+    io_writestr (io_outb_map[port], str);
+}
+
+void io_serial_outint (const enum COMPort port, int32_t d)
+{
+    io_writeint (io_outb_map[port], d);
+}
+
+void io_serial_outbool (const enum COMPort port, bool b)
+{
+    io_writebool (io_outb_map[port], b);
+}
 
 void io_serial_printf (const enum COMPort port, const char * const format, ...)
 {
-    static void (*outb_map[])(const char c) = {
-        io_com1_outb,
-        io_com2_outb,
-        io_com3_outb,
-        io_com4_outb,
-        io_com5_outb,
-        io_com6_outb,
-        io_com7_outb,
-        io_com8_outb,
-    };
-
     va_list params;
     va_start (params, format);
-    io_printf (outb_map[port], format, params);
+    io_printf (io_outb_map[port], format, params);
     va_end (params);
 }
 
-static void io_writestr (void (*output_char)(const char), const char *str)
+void io_writestr (void (*output_char)(const char), const char *str)
 {
     while (*str != '\0')
     {
         output_char (*str);
         str++;
+    }
+}
+
+void io_writeint (void (*output_char)(const char), int32_t d)
+{
+    if (d == 0)
+    {
+        output_char ('0');
+        return;
+    }
+
+    /* Do not print leading zeros. */
+    size_t msnz = 0;
+    char digits[10];
+    if (d > 0)
+    {
+        for (msnz = 0; msnz < sizeof (digits) / sizeof (digits[0]) && d != 0; msnz++)
+        {
+            digits[msnz] = '0' + (d % 10);
+            d /= 10;
+        }
+    }
+    else
+    {
+        for (msnz = 0; msnz < sizeof (digits) / sizeof (digits[0]) && d != 0; msnz++)
+        {
+            digits[msnz] = '0' + -(d % 10);
+            d /= 10;
+        }
+
+        output_char ('-');
+    }
+
+    for (size_t i = msnz; i != 0; i--)
+    {
+        output_char (digits[i - 1]);
+    }
+}
+
+void io_writebool (void (*output_char)(const char), bool b)
+{
+    if (b)
+    {
+        io_writestr (output_char, "true");
+    }
+    else
+    {
+        io_writestr (output_char, "false");
     }
 }
 
@@ -151,41 +212,14 @@ void io_printf (void (*output_char)(const char), const char *format, va_list par
             case 'd':
             {
 				i++;
-                int val = va_arg (params, int);
-                if (val == 0)
-                {
-                    output_char ('0');
-                    break;
-                }
+                io_writeint (output_char, va_arg (params, int));
+                break;
+            }
 
-				/* Do not print leading zeros. */
-                size_t msnz = 0;
-                char digits[10];
-                if (val > 0)
-                {
-                    for (msnz = 0; msnz < sizeof (digits) / sizeof (digits[0]) && val != 0; msnz++)
-                    {
-                        const int d = val % 10;
-                        digits[msnz] = '0' + d;
-                        val /= 10;
-                    }
-                }
-                else
-                {
-                    for (msnz = 0; msnz < sizeof (digits) / sizeof (digits[0]) && val != 0; msnz++)
-                    {
-                        const int d = -(val % 10);
-                        digits[msnz] = '0' + d;
-                        val /= 10;
-                    }
-
-                    output_char ('-');
-                }
-
-                for (size_t i = msnz; i != 0; i--)
-                {
-                    output_char (digits[i - 1]);
-                }
+            case 'b':
+            {
+                i++;
+                io_writebool (output_char, va_arg (params, int));
                 break;
             }
 
@@ -193,7 +227,7 @@ void io_printf (void (*output_char)(const char), const char *format, va_list par
             case 'X':
             {
 				i++;
-                unsigned int val = va_arg (params, unsigned int);
+                uint32_t val = va_arg (params, unsigned int);
                 const char base = (c == 'x' ? 'a' : 'A');
 
                 output_char ('0');
