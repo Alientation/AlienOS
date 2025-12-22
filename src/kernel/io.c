@@ -31,14 +31,17 @@ void io_init_serial (enum COMPortAddress port, uint16_t divisor, enum COMDataBit
 
     /* Set interrupt trigger level at 14 bytes and clear both transmit/receive FIFO buffers. */
     io_outb (port + WRITE_FIFO_CONTROL, 0b11000111);
-
-    // TODO: TEMP SET LOOPBACK MODE
-    io_outb (port + MODEM_CONTROL, 0b11110);
 }
 
 bool io_has_received_data (enum COMPortAddress port)
 {
     return io_inb (port + READ_LINE_STATUS) & 0b1;          /* Read Data Ready (DR) bit. */
+}
+
+void io_set_loopback (enum COMPortAddress port, bool loopback)
+{
+    uint8_t modem_control = io_inb (port + MODEM_CONTROL);
+    io_outb (port + MODEM_CONTROL, (modem_control & 0b11101111) | ((uint8_t) loopback) << 4);
 }
 
 bool io_innextb (enum COMPortAddress port, uint8_t *data)

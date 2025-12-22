@@ -68,6 +68,8 @@ void io_init_serial (enum COMPortAddress port, uint16_t divisor, enum COMDataBit
 /* Whether the buffer contains received data. */
 bool io_has_received_data (enum COMPortAddress port);
 
+void io_set_loopback (enum COMPortAddress port, bool loopback);
+
 /* Read the next byte received by the port. Spins until we receive a byte or we reach max iterations.
    Returns an error (false) if we hit max iterations. */
 bool io_innextb (enum COMPortAddress port, uint8_t *data);

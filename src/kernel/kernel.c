@@ -18,6 +18,8 @@
 void kernel_main(void)
 {
 	io_init_serial (COMPort_1, 3, COMDataBits_7, COMStopBits_1, COMParityBits_NONE);
+	io_set_loopback (COMPort_1, true);
+
 	terminal_init();
 
 	io_outb (COMPort_1, 0xAB);
