@@ -15,17 +15,13 @@
 #endif
 
 
-void kernel_main(void)
+void test_io (void)
 {
-	io_init_serial (COMPort_1, 3, COMDataBits_7, COMStopBits_1, COMParityBits_NONE);
-	io_set_loopback (COMPort_1, true);
-
-	terminal_init();
-
-	io_outb (COMPort_1, 0xAB);
+	io_serial_set_loopback (COMPort_1, true);
+	io_serial_outb (COMPort_1, 0xAB);
 
 	uint8_t data = 0;
-	if (!io_innextb (COMPort_1, &data))
+	if (!io_serial_nextinb (COMPort_1, &data))
 	{
 		terminal_writestring ("FAILED SPIN ITERATIONS\n\n");
 	}
@@ -33,6 +29,23 @@ void kernel_main(void)
 	{
 		terminal_writestring ("FAILED DATA MATCH\n\n");
 	}
+
+	io_serial_set_loopback (COMPort_1, false);
+}
+
+
+void kernel_main(void)
+{
+	io_serial_init (COMPort_1, 3, COMDataBits_7, COMStopBits_1, COMParityBits_NONE);
+
+	terminal_init();
+
+	test_io ();
+
+	io_serial_outb (COMPort_1, 'a');
+	io_serial_outb (COMPort_1, 'b');
+	io_serial_outb (COMPort_1, 'c');
+	io_serial_outb (COMPort_1, '\n');
 
 
 	terminal_writestring("Hello ");

@@ -1,23 +1,37 @@
 #ifndef SRC_INCLUDE_IO_H
 #define SRC_INCLUDE_IO_H
 
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
+/* COM Ports. */
+enum COMPort
+{
+    COMPort_1,
+    COMPort_2,
+    COMPort_3,
+    COMPort_4,
+    COMPort_5,
+    COMPort_6,
+    COMPort_7,
+    COMPort_8,
+};
+
 /* Base address of COM serial ports. Note, aside from the first two ports,
    the rest may not be located at these addresses.
    https://wiki.osdev.org/Serial_Ports */
-enum COMPortAddress
+static const uint16_t COMPortToAddr[] =
 {
-    COMPort_1 = 0x3F8,
-    COMPort_2 = 0x2F8,
-    COMPort_3 = 0x3E8,
-    COMPort_4 = 0x2E8,
-    COMPort_5 = 0x5F8,
-    COMPort_6 = 0x4F8,
-    COMPort_7 = 0x5E8,
-    COMPort_8 = 0x4E8,
+    0x3F8,          /* COM 1 */
+    0x2F8,          /* COM 2 */
+    0x3E8,          /* COM 3 */
+    0x2E8,          /* COM 4 */
+    0x5F8,          /* COM 5 */
+    0x4F8,          /* COM 6 */
+    0x5E8,          /* COM 7 */
+    0x4E8,          /* COM 8 */
 };
 
 /* Number of bits in a character. */
@@ -47,31 +61,37 @@ enum COMParityBits
     COMParityBits_SPACE = 0b111,        /* Parity bit is always 0. */
 };
 
-/* Write byte to port. */
-static inline void io_outb (enum COMPortAddress port, uint8_t val)
+/* Write byte to serial port. */
+static inline void io_serial_outb (const enum COMPort port, const uint8_t val)
 {
-    asm volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
+    const uint16_t port_addr = COMPortToAddr[port];
+    asm volatile ("outb %0, %1" : : "a"(val), "Nd"(port_addr));
 }
 
-/* Read byte from port. */
-static inline uint8_t io_inb (enum COMPortAddress port)
+/* Read byte from serial port. */
+static inline uint8_t io_serial_inb (const enum COMPort port)
 {
+    const uint16_t port_addr = COMPortToAddr[port];
     uint8_t ret;
-    asm volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port));
+    asm volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port_addr));
     return ret;
 }
 
 /* Initialize a COM port. */
-void io_init_serial (enum COMPortAddress port, uint16_t divisor, enum COMDataBits databits,
-                     enum COMStopBits stopbits, enum COMParityBits paritybits);
+void io_serial_init (const enum COMPort port, const uint16_t divisor, const enum COMDataBits databits,
+                     const enum COMStopBits stopbits, const enum COMParityBits paritybits);
 
 /* Whether the buffer contains received data. */
-bool io_has_received_data (enum COMPortAddress port);
+bool io_serial_data_ready (const enum COMPort port);
 
-void io_set_loopback (enum COMPortAddress port, bool loopback);
+void io_serial_set_loopback (const enum COMPort port, const bool loopback);
 
 /* Read the next byte received by the port. Spins until we receive a byte or we reach max iterations.
    Returns an error (false) if we hit max iterations. */
-bool io_innextb (enum COMPortAddress port, uint8_t *data);
+bool io_serial_nextinb (const enum COMPort port, uint8_t * const data);
+
+/* Printf to a serial port. */
+void io_serial_printf (const enum COMPort port, const char * const format, ...);
+void io_printf (void (*output_char)(const char), const char *format, va_list params);
 
 #endif /* SRC_INCLUDE_IO_H */
