@@ -49,5 +49,5 @@ void kernel_main(void)
 
 
 	terminal_writestring("Hello ");
-	terminal_printf("kernel World!\nWelcome to AlienOS %s.%c.%d.%x.%X.%%\n", "Hi", 'c', 42, 0x123abc, 0X123ABC);
+	terminal_printf("kernel World!\nWelcome to AlienOS %s.%c.%d.%x.%X.%%\n", "Hi", 'c', -42, 0x123abc, 0X123ABC);
 }

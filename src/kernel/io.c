@@ -174,14 +174,11 @@ void io_printf (void (*output_char)(const char), const char *format, va_list par
                 {
                     for (msnz = 0; msnz < sizeof (digits) / sizeof (digits[0]) && val != 0; msnz++)
                     {
-                        const int d = (10 - (val % 10));
+                        const int d = -(val % 10);
                         digits[msnz] = '0' + d;
                         val /= 10;
                     }
-                }
 
-                if (val < 0)
-                {
                     output_char ('-');
                 }
 
