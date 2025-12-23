@@ -144,6 +144,44 @@ void io_writeint (void (*output_char)(const char), int32_t d)
     }
 }
 
+static void internal_io_writeinthex (void (*output_char)(const char), int32_t d, const char base)
+{
+    output_char ('0');
+    output_char ('x' - 'a' + base);
+    if (d == 0)
+    {
+        output_char ('0');
+        return;
+    }
+
+    /* Do not print leading zeros. */
+    size_t msnz = 0;
+    char digits[8];
+    for (msnz = 0; msnz < sizeof (digits) / sizeof (digits[0]) && d != 0; msnz++)
+    {
+        const int nib = d % 16;
+        d >>= 4;
+        if (nib < 10)
+        {
+            digits[msnz] = '0' + nib;
+        }
+        else
+        {
+            digits[msnz] = base + (nib - 10);
+        }
+    }
+
+    for (size_t i = msnz; i != 0; i--)
+    {
+        output_char (digits[i - 1]);
+    }
+}
+
+void io_writeptr (void (*output_char)(const char), const void * const ptr)
+{
+    internal_io_writeinthex (output_char, (uint32_t) ptr, 'a');
+}
+
 void io_writebool (void (*output_char)(const char), bool b)
 {
     if (b)
@@ -167,78 +205,43 @@ void io_printf (void (*output_char)(const char), const char *format, va_list par
 			continue;
         }
 
-		const char c = format[i + 1];
+		const char c = format[++i];
         switch (c)
         {
             case 's':
-				i++;
                 io_writestr (output_char, va_arg (params, const char *));
                 break;
 
             case 'c':
-				i++;
                 output_char ((char) va_arg (params, int));
                 break;
 
             case 'd':
-            {
-				i++;
                 io_writeint (output_char, va_arg (params, int));
                 break;
-            }
 
             case 'b':
-            {
-                i++;
                 io_writebool (output_char, va_arg (params, int));
                 break;
-            }
+
+            case 'p':
+                io_writeptr (output_char, va_arg (params, void *));
+                break;
 
             case 'x':
             case 'X':
             {
-				i++;
-                uint32_t val = va_arg (params, unsigned int);
                 const char base = (c == 'x' ? 'a' : 'A');
-
-                output_char ('0');
-                output_char ('x' - 'a' + base);
-                if (val == 0)
-                {
-                    output_char ('0');
-                    break;
-                }
-
-				/* Do not print leading zeros. */
-                size_t msnz = 0;
-                char digits[8];
-                for (msnz = 0; msnz < sizeof (digits) / sizeof (digits[0]) && val != 0; msnz++)
-                {
-                    const int nib = val % 16;
-					val >>= 4;
-                    if (nib < 10)
-                    {
-                        digits[msnz] = '0' + nib;
-                    }
-                    else
-                    {
-                        digits[msnz] = base + (nib - 10);
-                    }
-                }
-
-                for (size_t i = msnz; i != 0; i--)
-                {
-                    output_char (digits[i - 1]);
-                }
+                internal_io_writeinthex (output_char, va_arg (params, unsigned int), base);
                 break;
             }
+
             case '%':
-				i++;
                 output_char ('%');
 				break;
 			default:
-				/* Following invalid character will be displayed right after. */
                 output_char ('%');
+                output_char (c);
 				break;
         }
     }

@@ -137,6 +137,9 @@ void io_writestr (void (*output_char)(const char), const char *str);
 /* Write integer. */
 void io_writeint (void (*output_char)(const char), int32_t d);
 
+/* Write pointer. */
+void io_writeptr (void (*output_char)(const char), const void * const ptr);
+
 /* Write bool. */
 void io_writebool (void (*output_char)(const char), bool b);
 
