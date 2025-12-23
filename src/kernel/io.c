@@ -76,35 +76,6 @@ bool io_serial_nextinb (const enum COMPort port, uint8_t * const data)
     return true;
 }
 
-
-/* Character output helpers to pass into generic io_printf for serial ports. */
-#define IO_COMN_OUTB(n)                         \
-static void io_com##n##_outb (const char c)     \
-{                                               \
-    io_serial_outb (n - 1, c);                  \
-}
-
-IO_COMN_OUTB(1)
-IO_COMN_OUTB(2)
-IO_COMN_OUTB(3)
-IO_COMN_OUTB(4)
-IO_COMN_OUTB(5)
-IO_COMN_OUTB(6)
-IO_COMN_OUTB(7)
-IO_COMN_OUTB(8)
-
-static void (*io_outb_map[])(const char c) =
-{
-    io_com1_outb,
-    io_com2_outb,
-    io_com3_outb,
-    io_com4_outb,
-    io_com5_outb,
-    io_com6_outb,
-    io_com7_outb,
-    io_com8_outb,
-};
-
 void io_serial_outstr (const enum COMPort port, const char *str)
 {
     io_writestr (io_outb_map[port], str);

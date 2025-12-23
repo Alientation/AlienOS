@@ -25,7 +25,8 @@ gdtr:
     .word 0     /* 16 bit size of GDT table */
     .long 0     /* 32 bit base address of GDT table */
 
-/* Entry */
+
+/* Entry into kernel. */
 .section .text
 .global _start
 .type _start, @function
@@ -62,6 +63,8 @@ gdtr_init:
     ret
 .size gdtr_init, . - gdtr_init
 
+
+/* Reload segments when GDT is updated. */
 .global reload_segments
 .type reload_segments, @function
 reload_segments:
@@ -76,3 +79,14 @@ reload_segments:
     movw %ax, %ss
     ret
 .size reload_segments, . - reload_segments
+
+
+/* Halts the CPU when kernal panics. */
+.global panic_halt
+.type panic_halt, @function
+panic_halt:
+    cli                             /* Disable maskable interrupts */
+.loop:
+    hlt                             /* Halt CPU */
+    jmp .loop                       /* Jump back if non-maskable interrupts wakes the CPU */
+.size panic_halt, . - panic_halt

@@ -3,6 +3,7 @@
 #include "io.h"
 #include "mem.h"
 
+#include <stdarg.h>
 #include <stddef.h>
 
 /* Check if the compiler thinks we are targeting the wrong operating system. */
@@ -14,6 +15,8 @@
 #if !defined(__i386__)
 #error "Needs to be compiled with a ix86-elf compiler"
 #endif
+
+extern void panic_halt (void);
 
 
 void test_io (void)
@@ -54,4 +57,13 @@ void kernel_main(void)
 	// test_io ();
 
 	gdt_init ();
+}
+
+void kernal_panic (const char *format, ...)
+{
+	va_list params;
+	va_start (params, format);
+	io_printf (io_com1_outb, format, params);
+	io_serial_printf (COMPort_1, "\n");
+	panic_halt ();
 }
