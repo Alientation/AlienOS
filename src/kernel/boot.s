@@ -19,6 +19,12 @@ stack_bottom:
     .skip 16384
 stack_top:
 
+.section .data
+.align 4
+gdtr:
+    .word 0     /* 16 bit size of GDT table */
+    .long 0     /* 32 bit base address of GDT table */
+
 /* Entry */
 .section .text
 .global _start
@@ -32,5 +38,41 @@ _start:
     cli                             /* disable interrupts */
 1:  hlt                             /* wait for next interrupt */
     jmp 1b                          /* jump back to hlt instruction if we wake up */
-
 .size _start, . - _start
+
+
+/* Initialize the GDT pointer.
+   https://wiki.osdev.org/GDT_Tutorial#Survival_Glossary */
+.global gdtr_init
+.type gdtr_init, @function
+gdtr_init:
+    /* Load the GDT table size. */
+    movw 4(%esp), %ax
+    movw %ax, gdtr
+
+    /* Load the GDT base address. */
+    movl 8(%esp), %eax
+    movl %eax, gdtr + 2
+
+    /* Load GDTR into the CPU register. */
+    lgdt gdtr
+
+    /* Reload segment registers. */
+    call reload_segments
+    ret
+.size gdtr_init, . - gdtr_init
+
+.global reload_segments
+.type reload_segments, @function
+reload_segments:
+    /* Reload code selector register. */
+    ljmp $0x08, $.flush             /* Far jump to set CS */
+.flush:
+    movw $0x10, %ax                 /* Load data segment selector */
+    movw %ax, %ds
+    movw %ax, %es
+    movw %ax, %fs
+    movw %ax, %gs
+    movw %ax, %ss
+    ret
+.size reload_segments, . - reload_segments

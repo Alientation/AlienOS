@@ -11,21 +11,21 @@ CFLAGS = -std=gnu99 -ffreestanding -O2 -Wall -Wextra $(INCLUDES)
 LDFLAGS = -ffreestanding -fno-builtin -nostdinc -O2 -nostdlib -lgcc -T linker.ld
 
 # Sources
-KERNEL_CSRCS = $(wildcard src/kernel/*.c)
-KERNEL_ASRCS = $(wildcard src/kernel/*.s)
+KERNEL_CSRCS = $(wildcard src/*/*.c)
+KERNEL_ASRCS = $(wildcard src/*/*.s)
 LIBC_SRCS = $(wildcard libc/src/*.c)
 
 # Objects
-KERNEL_OBJS := $(patsubst src/kernel/%.c, build/kernel/%.o, $(KERNEL_CSRCS))
-KERNEL_OBJS += $(patsubst src/kernel/%.s, build/kernel/%.o, $(KERNEL_ASRCS))
+KERNEL_OBJS := $(patsubst src/%.c, build/%.o, $(KERNEL_CSRCS))
+KERNEL_OBJS += $(patsubst src/%.s, build/%.o, $(KERNEL_ASRCS))
 LIBC_OBJS := $(patsubst libc/src/%.c, build/libc/%.o, $(LIBC_SRCS))
 
-.PHONY: all clean qemu build/kernel build/libc build/isodir/boot/grub
+.PHONY: all clean qemu build build/isodir/boot/grub
 
 all: iso/alienos.iso
 
 # Create build directories
-build/kernel build/libc build/isodir/boot/grub:
+build build/isodir/boot/grub:
 	@mkdir -p $@
 
 # Build c library archive
@@ -33,15 +33,18 @@ build/libk.a: $(LIBC_OBJS)
 	$(AR) rcs $@ $(LIBC_OBJS)
 
 # Kernel C files
-build/kernel/%.o: src/kernel/%.c | build/kernel
+build/%.o: src/%.c | build
+	@mkdir -p $(dir $@)
 	$(CC) -c $< -o $@ $(CFLAGS)
 
 # Kernel Assembly files
-build/kernel/%.o: src/kernel/%.s | build/kernel
+build/%.o: src/%.s | build
+	@mkdir -p $(dir $@)
 	$(AS) $< -o $@
 
 # C Library files
-build/libc/%.o: libc/src/%.c | build/libc
+build/libc/%.o: libc/src/%.c | build
+	@mkdir -p $(dir $@)
 	$(CC) -c $< -o $@ $(CFLAGS)
 
 # Link

@@ -1,6 +1,7 @@
 #include "kernel.h"
 #include "terminal.h"
 #include "io.h"
+#include "mem.h"
 
 #include <stddef.h>
 
@@ -31,16 +32,6 @@ void test_io (void)
 	}
 
 	io_serial_set_loopback (COMPort_1, false);
-}
-
-
-void kernel_main(void)
-{
-	io_serial_init (COMPort_1, 3, COMDataBits_7, COMStopBits_1, COMParityBits_NONE);
-
-	terminal_init();
-
-	test_io ();
 
 	io_serial_outstr (COMPort_1, "abc\n");
 	io_serial_outint (COMPort_1, 206);
@@ -51,7 +42,16 @@ void kernel_main(void)
 	io_serial_outstr (COMPort_1, "\n");
 	io_serial_outbool (COMPort_1, true);
 	io_serial_outstr (COMPort_1, "\n");
+}
 
-	terminal_writestr("Hello ");
-	terminal_printf("kernel World!\nWelcome to AlienOS %s.%c.%d.%x.%X.%%\n", "Hi", 'c', -42, 0x123abc, 0X123ABC);
+
+void kernel_main(void)
+{
+	io_serial_init (COMPort_1, 3, COMDataBits_7, COMStopBits_1, COMParityBits_NONE);
+	terminal_init();
+
+	terminal_printf("Welcome to AlienOS\n");
+	// test_io ();
+
+	gdt_init ();
 }
