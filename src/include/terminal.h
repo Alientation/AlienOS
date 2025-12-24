@@ -37,21 +37,21 @@ static inline uint16_t vga_entry (const unsigned char uc, const uint8_t color)
 
 void terminal_init (void);
 
-void terminal_setcolor (const uint8_t color);
+void terminal_setcolor (uint8_t color);
 
-void terminal_putentryat (const char c, const uint8_t color, const size_t x, const size_t y);
+void terminal_putentryat (char c, uint8_t color, size_t x, size_t y);
 
-void terminal_putchar (const char c);
+void terminal_putchar (char c);
 
-void terminal_write (const char * const data, const size_t size);
+void terminal_write (const char *data, size_t size);
 
-void terminal_writestr (const char * const data);
+void terminal_writestr (const char *data);
 
-void terminal_writeint (const uint32_t d);
+void terminal_writeint (uint32_t d);
 
-void terminal_writebool (const bool b);
+void terminal_writebool (bool b);
 
-void terminal_printf (const char * const format, ...);
+void terminal_printf (const char *format, ...);
 
 
 #endif /* SRC_INCLUDE_TERMINAL_H */

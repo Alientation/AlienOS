@@ -76,17 +76,17 @@ bool io_serial_nextinb (const enum COMPort port, uint8_t * const data)
     return true;
 }
 
-void io_serial_outstr (const enum COMPort port, const char *str)
+void io_serial_outstr (const enum COMPort port, const char * const str)
 {
     io_writestr (io_outb_map[port], str);
 }
 
-void io_serial_outint (const enum COMPort port, int32_t d)
+void io_serial_outint (const enum COMPort port, const int32_t d)
 {
     io_writeint (io_outb_map[port], d);
 }
 
-void io_serial_outbool (const enum COMPort port, bool b)
+void io_serial_outbool (const enum COMPort port, const bool b)
 {
     io_writebool (io_outb_map[port], b);
 }
@@ -99,7 +99,7 @@ void io_serial_printf (const enum COMPort port, const char * const format, ...)
     va_end (params);
 }
 
-void io_writestr (void (*output_char)(const char), const char *str)
+void io_writestr (void (* const output_char)(const char), const char * str)
 {
     while (*str != '\0')
     {
@@ -108,7 +108,7 @@ void io_writestr (void (*output_char)(const char), const char *str)
     }
 }
 
-void io_writeint (void (*output_char)(const char), int32_t d)
+void io_writeint (void (* const output_char)(const char), int32_t d)
 {
     if (d == 0)
     {
@@ -144,7 +144,7 @@ void io_writeint (void (*output_char)(const char), int32_t d)
     }
 }
 
-static void internal_io_writeinthex (void (*output_char)(const char), int32_t d, const char base)
+static void internal_io_writeinthex (void (*const output_char)(const char), int32_t d, const char base)
 {
     output_char ('0');
     output_char ('x' - 'a' + base);
@@ -177,12 +177,12 @@ static void internal_io_writeinthex (void (*output_char)(const char), int32_t d,
     }
 }
 
-void io_writeptr (void (*output_char)(const char), const void * const ptr)
+void io_writeptr (void (*const output_char)(const char), const void * const ptr)
 {
     internal_io_writeinthex (output_char, (uint32_t) ptr, 'a');
 }
 
-void io_writebool (void (*output_char)(const char), bool b)
+void io_writebool (void (*const output_char)(const char), const bool b)
 {
     if (b)
     {
@@ -194,7 +194,7 @@ void io_writebool (void (*output_char)(const char), bool b)
     }
 }
 
-void io_printf (void (*output_char)(const char), const char *format, va_list params)
+void io_printf (void (*const output_char)(const char), const char * const format, va_list params)
 {
     const size_t len = strlen (format);
     for (size_t i = 0; i < len; i++)

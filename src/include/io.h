@@ -107,42 +107,42 @@ static void (* const io_outb_map[])(const char c) =
 #undef IO_COMN_OUTB
 
 /* Initialize a COM port. */
-void io_serial_init (const enum COMPort port, const uint16_t divisor, const enum COMDataBits databits,
-                     const enum COMStopBits stopbits, const enum COMParityBits paritybits);
+void io_serial_init (enum COMPort port, uint16_t divisor, enum COMDataBits databits,
+                     enum COMStopBits stopbits, enum COMParityBits paritybits);
 
 /* Whether the buffer contains received data. */
-bool io_serial_data_ready (const enum COMPort port);
+bool io_serial_data_ready (enum COMPort port);
 
-void io_serial_set_loopback (const enum COMPort port, const bool loopback);
+void io_serial_set_loopback (enum COMPort port, bool loopback);
 
 /* Read the next byte received by the port. Spins until we receive a byte or we reach max iterations.
    Returns an error (false) if we hit max iterations. */
-bool io_serial_nextinb (const enum COMPort port, uint8_t * const data);
+bool io_serial_nextinb (enum COMPort port, uint8_t *data);
 
 /* Write C string to serial port. */
-void io_serial_outstr (const enum COMPort port, const char *str);
+void io_serial_outstr (enum COMPort port, const char *str);
 
 /* Write int to serial port. */
-void io_serial_outint (const enum COMPort port, int32_t d);
+void io_serial_outint (enum COMPort port, int32_t d);
 
 /* Write bool to serial port. */
-void io_serial_outbool (const enum COMPort port, bool b);
+void io_serial_outbool (enum COMPort port, bool b);
 
 /* Print format to a serial port. */
-void io_serial_printf (const enum COMPort port, const char * const format, ...);
+void io_serial_printf (enum COMPort port, const char *format, ...);
 
 /* Write C string. */
-void io_writestr (void (*output_char)(const char), const char *str);
+void io_writestr (void (*output_char)(char), const char *str);
 
 /* Write integer. */
-void io_writeint (void (*output_char)(const char), int32_t d);
+void io_writeint (void (*output_char)(char), int32_t d);
 
 /* Write pointer. */
-void io_writeptr (void (*output_char)(const char), const void * const ptr);
+void io_writeptr (void (*output_char)(char), const void *ptr);
 
 /* Write bool. */
-void io_writebool (void (*output_char)(const char), bool b);
+void io_writebool (void (*output_char)(char), bool b);
 
-void io_printf (void (*output_char)(const char), const char *format, va_list params);
+void io_printf (void (*output_char)(char), const char *format, va_list params);
 
 #endif /* SRC_INCLUDE_IO_H */

@@ -56,11 +56,12 @@ void kernel_main(void)
 	terminal_printf("Welcome to AlienOS\n");
 	// test_io ();
 
-	gdt_init ();
+	 gdt_init ();
 }
 
-void kernal_panic (const char *format, ...)
+void kernal_panic (const char * const format, ...)
 {
+	io_serial_printf (COMPort_1, "KERNAL PANIC!!!\n");
 	va_list params;
 	va_start (params, format);
 	io_printf (io_com1_outb, format, params);
