@@ -137,6 +137,9 @@ void io_writestr (void (*output_char)(char), const char *str);
 /* Write integer. */
 void io_writeint (void (*output_char)(char), int32_t d);
 
+/* Write unsigned integer. */
+void io_writeuint (void (*output_char)(char), uint32_t d);
+
 /* Write pointer. */
 void io_writeptr (void (*output_char)(char), const void *ptr);
 

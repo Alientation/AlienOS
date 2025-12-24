@@ -144,6 +144,29 @@ void io_writeint (void (* const output_char)(const char), int32_t d)
     }
 }
 
+void io_writeuint (void (*output_char)(char), uint32_t d)
+{
+    if (d == 0)
+    {
+        output_char ('0');
+        return;
+    }
+
+    /* Do not print leading zeros. */
+    size_t msnz = 0;
+    char digits[10];
+    for (msnz = 0; msnz < sizeof (digits) / sizeof (digits[0]) && d != 0; msnz++)
+    {
+        digits[msnz] = '0' + (d % 10);
+        d /= 10;
+    }
+
+    for (size_t i = msnz; i != 0; i--)
+    {
+        output_char (digits[i - 1]);
+    }
+}
+
 static void internal_io_writeinthex (void (*const output_char)(const char), int32_t d, const char base)
 {
     output_char ('0');
@@ -216,6 +239,11 @@ void io_printf (void (*const output_char)(const char), const char * const format
                 output_char ((char) va_arg (params, int));
                 break;
 
+            case 'u':
+                io_writeuint (output_char, va_arg (params, unsigned int));
+                break;
+
+            case 'i':
             case 'd':
                 io_writeint (output_char, va_arg (params, int));
                 break;

@@ -41,4 +41,7 @@ void *krealloc (void *ptr, size_t size);
 /* Free memory block. */
 void kfree (void *ptr);
 
+/* Debug log. */
+void kmalloc_printdebug (void);
+
 #endif /* SRC_INCLUDE_KAMLLOC_H */

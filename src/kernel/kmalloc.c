@@ -66,12 +66,12 @@ static bool internal_read_multibootinfo (const multiboot_info_t *const mbinfo)
                 kheap_max_end = end;
                 found = true;
 
-                io_serial_printf (COMPort_1, "Found memory block: %x, %x \tTARGET FOUND\n", start, end);
+                io_serial_printf (COMPort_1, "> Found memory block: %x, %x \tTARGET FOUND\n", start, end);
                 break;
             }
             else
             {
-                io_serial_printf (COMPort_1, "Found memory block: %x, %x\n", start, end);
+                io_serial_printf (COMPort_1, "> Found memory block: %x, %x\n", start, end);
             }
         }
 
@@ -123,6 +123,7 @@ static inline void km_initblock (km_block_header_t * const block, const size_t s
 {
     km_setsize (block, size);
     km_clearalloc (block);
+    km_setmagic (block);
 }
 
 /* Checks if a block in the free list can be coalesced with it's neighbor. Free list is
@@ -267,7 +268,7 @@ void *kmalloc (const size_t size)
     block = km_split (block, target_size);
     km_setalloc (block);
     kmalloc_stats.allocation_cnt++;
-    kmalloc_stats.allocation_bytes += size;
+    kmalloc_stats.allocation_bytes += km_getsize (block);
     return (void *) (block + 1);
 }
 
@@ -360,4 +361,15 @@ void kfree (void * const ptr)
 
     km_clearalloc (block);
     km_insert (block);
+}
+
+void kmalloc_printdebug (void)
+{
+    io_serial_printf (COMPort_1, "Kernel Heap: %u Allocations, %u Releases\n",
+                      kmalloc_stats.allocation_cnt, kmalloc_stats.free_cnt);
+
+    io_serial_printf (COMPort_1, "> Total Allocated Bytes: %u\n> Total Freed Bytes: %u\n",
+                      kmalloc_stats.allocation_bytes, kmalloc_stats.free_bytes);
+
+    /* TODO: Should also print free list */
 }

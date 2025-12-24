@@ -21,7 +21,7 @@
 extern void panic_halt (void);
 
 
-void test_io (void)
+static void test_io (void)
 {
 	io_serial_set_loopback (COMPort_1, true);
 	io_serial_outb (COMPort_1, 0xAB);
@@ -49,6 +49,13 @@ void test_io (void)
 	io_serial_outstr (COMPort_1, "\n");
 }
 
+static void test_kmalloc (void)
+{
+	void *ptr1 = kmalloc (16);
+	kmalloc_printdebug ();
+	kfree (ptr1);
+	kmalloc_printdebug ();
+}
 
 void kernel_main(const unsigned int magic, const multiboot_info_t * const mbinfo)
 {
@@ -81,8 +88,10 @@ void kernel_main(const unsigned int magic, const multiboot_info_t * const mbinfo
 	terminal_init();
 
 	/* ====== INITIALIZATION DONE ====== */
+	io_serial_printf (COMPort_1, "Kernel Initialize Completed\n");
 	terminal_printf("Welcome to AlienOS\n");
 	// test_io ();
+	test_kmalloc ();
 }
 
 static void internal_kernel_panic (const char * const format, va_list params)
