@@ -19,13 +19,24 @@ extern uint32_t kheap_begin;
 static uint32_t kheap_end;
 static uint32_t kheap_max_end;
 
+struct KMStats
+{
+    uint32_t allocation_cnt;            /* How many times the kmalloc() or krealloc() is called. */
+    uint32_t allocation_bytes;          /* How many bytes was requested in total. */
+    uint32_t free_cnt;                  /* How many times kfree() is called. */
+    uint32_t free_bytes;                /* How many bytes was freed in total. */
+} kmalloc_stats = {};
+
+
 typedef struct __attribute__((packed)) KMBlockHeader
 {
-    uint32_t metadata;              /* Upper 28 bits is the size of the block excluding header. Lower 4 bits are flags. */
+    uint32_t metadata;              /* Upper 28 bits is the size of the block excluding header size.
+                                       Lower 4 bits are flags. */
     struct  KMBlockHeader *next;    /* Pointer to next block in list. */
     uint32_t pad[2];                /* Padding to ensure 16 byte alignment. */
 } km_block_header_t;
 
+/* List of free (unallocated) blocks in heap. */
 static struct KMBlockHeader *free_list = NULL;
 
 static bool internal_read_multibootinfo (const multiboot_info_t *const mbinfo)
@@ -95,15 +106,18 @@ static void kmalloc_setalloc (km_block_header_t * const block, const bool alloc)
     }
 }
 
+/* Initializes the header of the memory block. Does not insert into the free list. */
 static void kmalloc_initblock (km_block_header_t * const block, const size_t size)
 {
     kmalloc_setsize (block, size);
     kmalloc_setalloc (block, false);
 }
 
+/* Adds a block of 'size' bytes (including header) to the kernel heap.
+   To allocate a block to satisfy request, pass in 'reqsize + 16' to account for size of header. */
 static void kmalloc_extend (const size_t size)
 {
-    const size_t block_size = KMALLOC_ALIGN (size + sizeof (km_block_header_t), KMALLOC_PAGESIZE);
+    const size_t block_size = KMALLOC_ALIGN (size, KMALLOC_PAGESIZE);
     const uint32_t block_begin = kheap_end;
     kheap_end += block_size;
 
@@ -124,7 +138,8 @@ void kmalloc_init (const multiboot_info_t * const mbinfo)
 
 
     kheap_begin = KMALLOC_ALIGN (kheap_begin, KMALLOC_PAGESIZE);
-    kheap_end = kheap_begin + KMALLOC_HEAP_INIT_SIZE;
+    kheap_end = kheap_begin;
+    kmalloc_extend (KMALLOC_HEAP_INIT_SIZE);
     io_serial_printf (COMPort_1, "Kernal Heap: [%x, %x] (MAX %x)\n", kheap_begin, kheap_end, kheap_max_end);
 
 
