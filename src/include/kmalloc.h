@@ -1,0 +1,44 @@
+#ifndef SRC_INCLUDE_KMALLOC_H
+#define SRC_INCLUDE_KMALLOC_H
+
+#include "multiboot.h"
+
+#include <stddef.h>
+
+/*
+    Kernel memory layout
+
+    ======================
+    | HIGH ADDRESS
+    | ^
+    | |
+    | |
+    | HEAP (Grows up)
+    | STACK (grows down) 16 Kib
+    | |
+    | V
+    | BSS
+    | Data
+    | Code
+    | LOW ADDRESS
+    ======================
+*/
+
+/* Initializes the kernel memory manager. */
+void kmalloc_init (const multiboot_info_t *mbinfo);
+
+/* Allocates a chunck of memory of atleast 'size' bytes. Returns the pointer to it. */
+void *kmalloc (size_t size);
+
+/* Allocates and zeros a chunck of memory. Returns the pointer to it. The size of the memory is
+   at least 'nelems' x 'elemsize' bytes large. */
+void *kcalloc (size_t nelems, size_t elemsize);
+
+/* Resizes a chunck of memory to 'size' bytes. The contents will remain unchanged.
+   If a new block is needed, the contents are copied over and the old block is freed. */
+void *krealloc (void *ptr, size_t size);
+
+/* Free memory block. */
+void kfree (void *ptr);
+
+#endif /* SRC_INCLUDE_KAMLLOC_H */

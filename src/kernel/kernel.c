@@ -2,6 +2,8 @@
 #include "terminal.h"
 #include "io.h"
 #include "mem.h"
+#include "multiboot.h"
+#include "kmalloc.h"
 
 #include <stdarg.h>
 #include <stddef.h>
@@ -48,15 +50,39 @@ void test_io (void)
 }
 
 
-void kernel_main(void)
+void kernel_main(const unsigned int magic, const multiboot_info_t * const mbinfo)
 {
+	static bool init = false;
+	if (init)
+	{
+		kernal_panic ("kernel_main() - Already initialized.");
+		return;
+	}
+	init = true;
+
+	/* Check that multiboot magic number is correct.
+	   https://www.gnu.org/software/grub/manual/multiboot/multiboot.html#multiboot_002eh */
+	if (magic != 0x2BADB002)
+	{
+		return;
+	}
+
+	/* Initialize serial port so we can send output outside of the emulator. kernel_panic()
+	   relies on this. */
 	io_serial_init (COMPort_1, 3, COMDataBits_7, COMStopBits_1, COMParityBits_NONE);
+
+	/* Initialize the global descriptor table. */
+	gdt_init ();
+
+	/* Initialize the kernel memory manageer. */
+	kmalloc_init (mbinfo);
+
+	/* Initialize the basic VGA terminal. */
 	terminal_init();
+
 
 	terminal_printf("Welcome to AlienOS\n");
 	// test_io ();
-
-	 gdt_init ();
 }
 
 void kernal_panic (const char * const format, ...)

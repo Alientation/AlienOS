@@ -1,4 +1,5 @@
 #include "mem.h"
+#include "kernel.h"
 
 uint64_t gdt[5];
 extern void gdtr_init (uint16_t size, uint32_t offset);
@@ -65,6 +66,14 @@ static void gdt_insert (uint64_t *gdt_entry, struct SegmentDescriptor segment)
 
 void gdt_init (void)
 {
+    static bool init = false;
+    if (init)
+    {
+        kernal_panic ("gdt_init() - Already initialized.");
+        return;
+    }
+    init = true;
+
     /* Null descriptor. */
     gdt[0] = 0;
 

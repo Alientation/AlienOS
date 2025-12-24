@@ -31,9 +31,10 @@ gdtr:
 .global _start
 .type _start, @function
 _start:
-
     mov $stack_top, %esp            /* init stack pointer */
 
+    push %ebx                       /* argument 2: pointer to multiboot info */
+    push %eax                       /* argument 1: magic number */
     call kernel_main
 
     cli                             /* disable interrupts */
