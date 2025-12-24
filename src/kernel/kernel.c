@@ -80,7 +80,7 @@ void kernel_main(const unsigned int magic, const multiboot_info_t * const mbinfo
 	/* Initialize the basic VGA terminal. */
 	terminal_init();
 
-
+	/* ====== INITIALIZATION DONE ====== */
 	terminal_printf("Welcome to AlienOS\n");
 	// test_io ();
 }
