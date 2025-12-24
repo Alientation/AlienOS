@@ -33,7 +33,7 @@ struct KMStats
 
 typedef struct __attribute__((packed)) KMBlockHeader
 {
-    uint32_t metadata;              /* Upper 28 bits is the size of the block excluding header size.
+    uint32_t metadata;              /* Upper 28 bits is the size of the block including header size.
                                        Lower 4 bits are flags. */
     struct  KMBlockHeader *next;    /* Pointer to next block in list. */
     uint32_t pad[2];                /* Padding to ensure 16 byte alignment. */
@@ -86,7 +86,7 @@ static inline size_t kmalloc_getsize (const km_block_header_t * const block)
     return block->metadata & ~(0b1111);
 }
 
-/* Assumption is size is 16 byte aligned and does not include the header size. */
+/* Assumption is size is 16 byte aligned and includes the header size. */
 static inline void kmalloc_setsize (km_block_header_t * const block, const size_t size)
 {
     block->metadata = (block->metadata & (0b1111)) | size;
@@ -126,6 +126,44 @@ static inline void kmalloc_initblock (km_block_header_t * const block, const siz
     kmalloc_setalloc (block, false);
 }
 
+/* Checks if a block in the free list can be coalesced with it's neighbor. Free list is
+   memory ordered. */
+static void kmalloc_coalesce (km_block_header_t * const block)
+{
+    if (block->next && ((uintptr_t) block) + kmalloc_getsize (block) == (uintptr_t) block->next)
+    {
+        kmalloc_setsize (block, kmalloc_getsize (block) + kmalloc_getsize (block->next));
+        block->next = block->next->next;
+    }
+}
+
+/* Inserts a block into free list, sorted by memory address. */
+static void kmalloc_insert (km_block_header_t * const block)
+{
+    if (!free_list)
+    {
+        free_list = block;
+        return;
+    }
+
+    km_block_header_t *prev = free_list;
+    km_block_header_t *next = free_list->next;
+
+    while (next != NULL && (uintptr_t) next < (uintptr_t) block)
+    {
+        next = next->next;
+    }
+
+    kernel_assert (prev->next == next, "kmalloc_insert() - Mismatch prev/next.");
+    kernel_assert (((uintptr_t) prev) + kmalloc_getsize (prev) <= (uintptr_t) block, "kmalloc_insert() - Prev is not before block.");
+    kernel_assert (((uintptr_t) block) + kmalloc_getsize (block) <= (uintptr_t) next, "kmalloc_insert() - Next is not after block.");
+
+    block->next = next;
+    prev->next = block;
+    kmalloc_coalesce (block);
+    kmalloc_coalesce (prev);
+}
+
 /* Adds a block of 'size' bytes (including header) to the kernel heap.
    To allocate a block to satisfy request, pass in 'reqsize + 16' to account for size of header. */
 static void kmalloc_extend (const size_t size)
@@ -134,9 +172,9 @@ static void kmalloc_extend (const size_t size)
     const uint32_t block_begin = kheap_end;
     kheap_end += block_size;
 
-    kmalloc_initblock ((km_block_header_t *) block_begin, block_size - sizeof (km_block_header_t));
-
-    // TODO: insert into free list.
+    km_block_header_t * const block = (km_block_header_t *) block_begin;
+    kmalloc_initblock (block, block_size);
+    kmalloc_insert (block);
 }
 
 void kmalloc_init (const multiboot_info_t * const mbinfo)
@@ -155,6 +193,8 @@ void kmalloc_init (const multiboot_info_t * const mbinfo)
     kmalloc_extend (KMALLOC_HEAP_INIT_SIZE);
     io_serial_printf (COMPort_1, "Kernal Heap: [%x, %x] (MAX %x)\n", kheap_begin, kheap_end, kheap_max_end);
 }
+
+
 
 void *kmalloc (const size_t size)
 {
