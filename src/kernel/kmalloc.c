@@ -8,6 +8,7 @@
 #define KMALLOC_PAGESIZE 4096
 #define KMALLOC_ALIGNMENT 16
 #define KMALLOC_HEAP_INIT_SIZE (4 * KMALLOC_PAGESIZE)
+#define KMALLOC_MAX_INTERNAL_FRAG 16
 
 /* Memory block header flag bits in metadata. */
 #define KMALLOC_ALLOC_BIT 0b0001
@@ -81,23 +82,23 @@ static bool internal_read_multibootinfo (const multiboot_info_t *const mbinfo)
     return true;
 }
 
-static inline size_t kmalloc_getsize (const km_block_header_t * const block)
+static inline size_t km_getsize (const km_block_header_t * const block)
 {
     return block->metadata & ~(0b1111);
 }
 
 /* Assumption is size is 16 byte aligned and includes the header size. */
-static inline void kmalloc_setsize (km_block_header_t * const block, const size_t size)
+static inline void km_setsize (km_block_header_t * const block, const size_t size)
 {
     block->metadata = (block->metadata & (0b1111)) | size;
 }
 
-static inline bool kmalloc_isalloc (const km_block_header_t * const block)
+static inline bool km_isalloc (const km_block_header_t * const block)
 {
     return block->metadata & KMALLOC_ALLOC_BIT;
 }
 
-static inline void kmalloc_setalloc (km_block_header_t * const block, const bool alloc)
+static inline void km_setalloc (km_block_header_t * const block, const bool alloc)
 {
     if (alloc)
     {
@@ -109,37 +110,42 @@ static inline void kmalloc_setalloc (km_block_header_t * const block, const bool
     }
 }
 
-static inline bool kmalloc_checkmagic (const km_block_header_t * const block)
+static inline bool km_checkmagic (const km_block_header_t * const block)
 {
     return block->pad[0] == KMALLOC_MAGIC;
 }
 
-static inline void kmalloc_setmagic (km_block_header_t * const block)
+static inline void km_setmagic (km_block_header_t * const block)
 {
     block->pad[0] = KMALLOC_MAGIC;
 }
 
 /* Initializes the header of the memory block. Does not insert into the free list. */
-static inline void kmalloc_initblock (km_block_header_t * const block, const size_t size)
+static inline void km_initblock (km_block_header_t * const block, const size_t size)
 {
-    kmalloc_setsize (block, size);
-    kmalloc_setalloc (block, false);
+    km_setsize (block, size);
+    km_setalloc (block, false);
 }
 
 /* Checks if a block in the free list can be coalesced with it's neighbor. Free list is
    memory ordered. */
-static void kmalloc_coalesce (km_block_header_t * const block)
+static void km_coalesce (km_block_header_t * const block)
 {
-    if (block->next && ((uintptr_t) block) + kmalloc_getsize (block) == (uintptr_t) block->next)
+    if (block->next && ((uintptr_t) block) + km_getsize (block) == (uintptr_t) block->next)
     {
-        kmalloc_setsize (block, kmalloc_getsize (block) + kmalloc_getsize (block->next));
+        km_setsize (block, km_getsize (block) + km_getsize (block->next));
         block->next = block->next->next;
     }
 }
 
 /* Inserts a block into free list, sorted by memory address. */
-static void kmalloc_insert (km_block_header_t * const block)
+static void km_insert (km_block_header_t * const block)
 {
+    if (!block)
+    {
+        return;
+    }
+
     if (!free_list)
     {
         free_list = block;
@@ -154,27 +160,32 @@ static void kmalloc_insert (km_block_header_t * const block)
         next = next->next;
     }
 
-    kernel_assert (prev->next == next, "kmalloc_insert() - Mismatch prev/next.");
-    kernel_assert (((uintptr_t) prev) + kmalloc_getsize (prev) <= (uintptr_t) block, "kmalloc_insert() - Prev is not before block.");
-    kernel_assert (((uintptr_t) block) + kmalloc_getsize (block) <= (uintptr_t) next, "kmalloc_insert() - Next is not after block.");
+    kernel_assert (prev->next == next, "km_insert() - Mismatch prev/next.");
+    kernel_assert (((uintptr_t) prev) + km_getsize (prev) <= (uintptr_t) block, "km_insert() - Prev is not before block.");
+    kernel_assert (((uintptr_t) block) + km_getsize (block) <= (uintptr_t) next, "km_insert() - Next is not after block.");
 
     block->next = next;
     prev->next = block;
-    kmalloc_coalesce (block);
-    kmalloc_coalesce (prev);
+    km_coalesce (block);
+    km_coalesce (prev);
 }
 
-/* Adds a block of 'size' bytes (including header) to the kernel heap.
-   To allocate a block to satisfy request, pass in 'reqsize + 16' to account for size of header. */
-static void kmalloc_extend (const size_t size)
+/* Creates a new block of 'size' bytes (including header) to add to kernel heap. Does not insert into
+   free list. To allocate a block to satisfy request, pass in 'reqsize + 16' to account for size of header. */
+static km_block_header_t *km_extend (const size_t size)
 {
     const size_t block_size = KMALLOC_ALIGN (size, KMALLOC_PAGESIZE);
     const uint32_t block_begin = kheap_end;
     kheap_end += block_size;
 
+    if (kheap_end > kheap_max_end)
+    {
+        kernel_panic ("km_extend() - Out of memory.");
+    }
+
     km_block_header_t * const block = (km_block_header_t *) block_begin;
-    kmalloc_initblock (block, block_size);
-    kmalloc_insert (block);
+    km_initblock (block, block_size);
+    return block;
 }
 
 void kmalloc_init (const multiboot_info_t * const mbinfo)
@@ -187,23 +198,70 @@ void kmalloc_init (const multiboot_info_t * const mbinfo)
 
     kernel_assert (internal_read_multibootinfo (mbinfo), "kmalloc_init() - Failed to read multiboot info.");
 
-
     kheap_begin = KMALLOC_ALIGN (kheap_begin, KMALLOC_PAGESIZE);
     kheap_end = kheap_begin;
-    kmalloc_extend (KMALLOC_HEAP_INIT_SIZE);
+    km_insert (km_extend (KMALLOC_HEAP_INIT_SIZE));
     io_serial_printf (COMPort_1, "Kernal Heap: [%x, %x] (MAX %x)\n", kheap_begin, kheap_end, kheap_max_end);
 }
 
+/* Find first block to satisfy request size. Removes from the free list if found, otherwise extends. */
+static km_block_header_t *km_find (const size_t size)
+{
+    km_block_header_t *prev = NULL;
+    km_block_header_t *cur = free_list;
+    while (cur && km_getsize (cur) < size)
+    {
+        prev = cur;
+        cur = cur->next;
+    }
 
+    if (!cur)
+    {
+        return km_extend (size);
+    }
+
+    if (!prev)
+    {
+        free_list = cur->next;
+    }
+    else
+    {
+        prev->next = cur->next;
+    }
+    cur->next = NULL;
+    return cur;
+}
+
+/* Splits an unallocated block into two parts, returns the portion of 'size' bytes. */
+static km_block_header_t *km_split (km_block_header_t * const block, const size_t size)
+{
+    if (km_getsize (block) < size + KMALLOC_MAX_INTERNAL_FRAG)
+    {
+        return block;
+    }
+
+    km_block_header_t * const split_block = (km_block_header_t *) (((uint8_t *) block) + size);
+    km_initblock (split_block, km_getsize (block) - size);
+    km_insert (split_block);
+
+    km_initblock (block, size);
+    return block;
+}
 
 void *kmalloc (const size_t size)
 {
+    const size_t target_size = size + sizeof (km_block_header_t);
+    km_block_header_t *block = km_find (target_size);
+    if (!block)
+    {
+        return NULL;
+    }
 
+    block = km_split (block, target_size);
+    km_setalloc (block, true);
     kmalloc_stats.allocation_cnt++;
     kmalloc_stats.allocation_bytes += size;
-
-    // TODO:
-    return NULL;
+    return block;
 }
 
 void *kcalloc (const size_t nelems, const size_t elemsize)
@@ -228,7 +286,7 @@ void *krealloc (void * const ptr, const size_t size)
 void kfree (void * const ptr)
 {
     kmalloc_stats.free_cnt++;
-    kmalloc_stats.free_bytes += kmalloc_getsize (ptr);
+    kmalloc_stats.free_bytes += km_getsize (ptr);
 
     // TODO:
 }
