@@ -3,7 +3,7 @@
 
 /* Sends message to COM1 port and terminates.
    Warning, will need to change when working on paging. */
-void kernal_panic (const char *msg, ...);
+void kernel_panic (const char *msg, ...);
 
 
 #endif /* SRC_INCLUDE_KERNEL_H */

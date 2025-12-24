@@ -55,7 +55,7 @@ void kernel_main(const unsigned int magic, const multiboot_info_t * const mbinfo
 	static bool init = false;
 	if (init)
 	{
-		kernal_panic ("kernel_main() - Already initialized.");
+		kernel_panic ("kernel_main() - Already initialized.");
 		return;
 	}
 	init = true;
@@ -85,7 +85,7 @@ void kernel_main(const unsigned int magic, const multiboot_info_t * const mbinfo
 	// test_io ();
 }
 
-void kernal_panic (const char * const format, ...)
+void kernel_panic (const char * const format, ...)
 {
 	io_serial_printf (COMPort_1, "KERNAL PANIC!!!\n");
 	va_list params;

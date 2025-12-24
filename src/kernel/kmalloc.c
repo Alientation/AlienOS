@@ -15,21 +15,13 @@ struct KMBlockHeader
     uint32_t next;
 } __attribute__((packed));
 
-void kmalloc_init (const multiboot_info_t * const mbinfo)
+static bool internal_read_multibootinfo (const multiboot_info_t *const mbinfo)
 {
-    static bool init = false;
-    if (init)
-    {
-        kernal_panic ("kmalloc_init() - Already initialized.");
-        return;
-    }
-    init = true;
-
     /* Panic if mmap is not available. */
     if (!(mbinfo->flags & MULTIBOOT_INFO_MEM_MAP))
     {
-        kernal_panic ("kmalloc_init() - mmap unavailable.");
-        return;
+        kernel_panic ("kmalloc_init() - mmap unavailable.");
+        return false;
     }
 
     bool found = false;
@@ -44,7 +36,6 @@ void kmalloc_init (const multiboot_info_t * const mbinfo)
         {
             const uint32_t start = (uint32_t) mmap->addr;
             const uint32_t end = start + (uint32_t) mmap->len;
-            io_serial_printf (COMPort_1, "Found memory block: %x, %x\n", start, end);
 
             if (start <= (uint32_t) &_kernel_end && end > (uint32_t) &_kernel_end)
             {
@@ -54,6 +45,10 @@ void kmalloc_init (const multiboot_info_t * const mbinfo)
                 io_serial_printf (COMPort_1, "Found memory block: %x, %x \tTARGET FOUND\n", start, end);
                 break;
             }
+            else
+            {
+                io_serial_printf (COMPort_1, "Found memory block: %x, %x\n", start, end);
+            }
         }
 
         mmap = (multiboot_memory_map_t *) ((uint32_t) mmap + mmap->size + sizeof (mmap->size));
@@ -61,9 +56,30 @@ void kmalloc_init (const multiboot_info_t * const mbinfo)
 
     if (!found)
     {
-        kernal_panic ("kmalloc_init() - Failed to find valid memory block.");
+        kernel_panic ("kmalloc_init() - Failed to find valid memory block.");
+        return false;
+    }
+
+    return true;
+}
+
+void kmalloc_init (const multiboot_info_t * const mbinfo)
+{
+    static bool init = false;
+    if (init)
+    {
+        kernel_panic ("kmalloc_init() - Already initialized.");
         return;
     }
+    init = true;
+
+    if (!internal_read_multibootinfo (mbinfo))
+    {
+        kernel_panic ("kmalloc_init() - Failed to read multiboot info.");
+        return;
+    }
+
+
 }
 
 void *kmalloc (const size_t size)

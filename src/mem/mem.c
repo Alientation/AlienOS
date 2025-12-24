@@ -69,7 +69,7 @@ void gdt_init (void)
     static bool init = false;
     if (init)
     {
-        kernal_panic ("gdt_init() - Already initialized.");
+        kernel_panic ("gdt_init() - Already initialized.");
         return;
     }
     init = true;
