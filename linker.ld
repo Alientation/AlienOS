@@ -47,5 +47,5 @@ SECTIONS
 		*(.bss)
 	}
 
-	_kernel_end = .;
+	kheap_begin = .;
 }

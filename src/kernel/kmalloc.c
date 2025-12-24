@@ -5,9 +5,15 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-extern uint32_t _kernel_end;
+#define KMALLOC_PAGESIZE 4096
+#define KMALLOC_HEAP_INIT_SIZE (4 * KMALLOC_PAGESIZE)
 
-static uint32_t kmalloc_max_addr;
+#define KMALLOC_ROUND(x, m) ((((x) + (m) - 1) / (m)) * (m))
+
+extern uint32_t kheap_begin;
+
+static uint32_t kheap_end;
+static uint32_t kheap_max_end;
 
 struct KMBlockHeader
 {
@@ -18,11 +24,7 @@ struct KMBlockHeader
 static bool internal_read_multibootinfo (const multiboot_info_t *const mbinfo)
 {
     /* Panic if mmap is not available. */
-    if (!(mbinfo->flags & MULTIBOOT_INFO_MEM_MAP))
-    {
-        kernel_panic ("kmalloc_init() - mmap unavailable.");
-        return false;
-    }
+    kernel_assert (mbinfo->flags & MULTIBOOT_INFO_MEM_MAP, "kmalloc_init() - mmap unavailable.");
 
     bool found = false;
     multiboot_memory_map_t *mmap = (multiboot_memory_map_t *) mbinfo->mmap_addr;
@@ -37,9 +39,9 @@ static bool internal_read_multibootinfo (const multiboot_info_t *const mbinfo)
             const uint32_t start = (uint32_t) mmap->addr;
             const uint32_t end = start + (uint32_t) mmap->len;
 
-            if (start <= (uint32_t) &_kernel_end && end > (uint32_t) &_kernel_end)
+            if (start <= (uint32_t) &kheap_begin && end > (uint32_t) &kheap_begin)
             {
-                kmalloc_max_addr = end;
+                kheap_max_end = end;
                 found = true;
 
                 io_serial_printf (COMPort_1, "Found memory block: %x, %x \tTARGET FOUND\n", start, end);
@@ -54,32 +56,22 @@ static bool internal_read_multibootinfo (const multiboot_info_t *const mbinfo)
         mmap = (multiboot_memory_map_t *) ((uint32_t) mmap + mmap->size + sizeof (mmap->size));
     }
 
-    if (!found)
-    {
-        kernel_panic ("kmalloc_init() - Failed to find valid memory block.");
-        return false;
-    }
-
+    kernel_assert (found, "kmalloc_init() - Failed to find valid memory block.");
     return true;
 }
 
 void kmalloc_init (const multiboot_info_t * const mbinfo)
 {
     static bool init = false;
-    if (init)
-    {
-        kernel_panic ("kmalloc_init() - Already initialized.");
-        return;
-    }
+    kernel_assert (!init, "kmalloc_init() - Already initialized.");
     init = true;
 
-    if (!internal_read_multibootinfo (mbinfo))
-    {
-        kernel_panic ("kmalloc_init() - Failed to read multiboot info.");
-        return;
-    }
+    kernel_assert (internal_read_multibootinfo (mbinfo), "kmalloc_init() - Failed to read multiboot info.");
 
 
+    kheap_begin = KMALLOC_ROUND (kheap_begin, KMALLOC_PAGESIZE);
+    kheap_end = kheap_begin + KMALLOC_HEAP_INIT_SIZE;
+    io_serial_printf (COMPort_1, "Kernal Heap: [%x, %x] (MAX %x)\n", kheap_begin, kheap_end, kheap_max_end);
 }
 
 void *kmalloc (const size_t size)

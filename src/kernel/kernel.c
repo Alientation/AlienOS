@@ -85,12 +85,29 @@ void kernel_main(const unsigned int magic, const multiboot_info_t * const mbinfo
 	// test_io ();
 }
 
-void kernel_panic (const char * const format, ...)
+static void internal_kernel_panic (const char * const format, va_list params)
 {
 	io_serial_printf (COMPort_1, "KERNAL PANIC!!!\n");
-	va_list params;
-	va_start (params, format);
 	io_printf (io_com1_outb, format, params);
 	io_serial_printf (COMPort_1, "\n");
 	panic_halt ();
+}
+
+void kernel_panic (const char * const format, ...)
+{
+	va_list params;
+	va_start (params, format);
+	internal_kernel_panic (format, params);
+	va_end (params);
+}
+
+void kernel_assert (bool cond, const char *format, ...)
+{
+	if (!cond)
+	{
+		va_list params;
+		va_start (params, format);
+		internal_kernel_panic (format, params);
+		va_end (params);
+	}
 }

@@ -21,8 +21,8 @@ uint8_t gdt_initseg_access (const bool present, const enum SegmentPrivilege dpl,
 
 uint8_t gdt_init_flags (const enum SegmentGranularityFlag g, const enum SegmentSizeFlag size)
 {
-    bool db = false;
-    bool l = false;
+    bool db;
+    bool l;
     if (size == SegmentSizeFlag_64bit)
     {
         db = false;
@@ -31,6 +31,7 @@ uint8_t gdt_init_flags (const enum SegmentGranularityFlag g, const enum SegmentS
     else
     {
         db = size;
+        l = false;
     }
 
     uint8_t flags = 0;
@@ -67,11 +68,7 @@ static void gdt_insert (uint64_t *gdt_entry, struct SegmentDescriptor segment)
 void gdt_init (void)
 {
     static bool init = false;
-    if (init)
-    {
-        kernel_panic ("gdt_init() - Already initialized.");
-        return;
-    }
+    kernel_assert (!init, "gdt_init() - Already initialized.");
     init = true;
 
     /* Null descriptor. */
