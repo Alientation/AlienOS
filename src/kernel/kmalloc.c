@@ -41,7 +41,7 @@ typedef struct __attribute__((packed)) KMBlockHeader
 } km_block_header_t;
 
 /* List of free (unallocated) blocks in heap. */
-static struct KMBlockHeader *free_list = NULL;
+static km_block_header_t *free_list = NULL;
 
 static bool internal_read_multibootinfo (const multiboot_info_t *const mbinfo)
 {
@@ -98,16 +98,14 @@ static inline bool km_isalloc (const km_block_header_t * const block)
     return block->metadata & KMALLOC_ALLOC_BIT;
 }
 
-static inline void km_setalloc (km_block_header_t * const block, const bool alloc)
+static inline void km_setalloc (km_block_header_t * const block)
 {
-    if (alloc)
-    {
-        block->metadata = (block->metadata & ~KMALLOC_ALLOC_BIT) | KMALLOC_ALLOC_BIT;
-    }
-    else
-    {
-        block->metadata = (block->metadata & ~KMALLOC_ALLOC_BIT);
-    }
+    block->metadata = (block->metadata & ~KMALLOC_ALLOC_BIT) | KMALLOC_ALLOC_BIT;
+}
+
+static inline void km_clearalloc (km_block_header_t * const block)
+{
+    block->metadata = (block->metadata & ~KMALLOC_ALLOC_BIT);
 }
 
 static inline bool km_checkmagic (const km_block_header_t * const block)
@@ -124,7 +122,7 @@ static inline void km_setmagic (km_block_header_t * const block)
 static inline void km_initblock (km_block_header_t * const block, const size_t size)
 {
     km_setsize (block, size);
-    km_setalloc (block, false);
+    km_clearalloc (block);
 }
 
 /* Checks if a block in the free list can be coalesced with it's neighbor. Free list is
@@ -146,8 +144,10 @@ static void km_insert (km_block_header_t * const block)
         return;
     }
 
-    if (!free_list)
+    /* Free list is empty or the block comes before the free list. */
+    if (!free_list || (uintptr_t) block < (uintptr_t) free_list)
     {
+        block->next = free_list;
         free_list = block;
         return;
     }
@@ -164,6 +164,7 @@ static void km_insert (km_block_header_t * const block)
     kernel_assert (((uintptr_t) prev) + km_getsize (prev) <= (uintptr_t) block, "km_insert() - Prev is not before block.");
     kernel_assert (((uintptr_t) block) + km_getsize (block) <= (uintptr_t) next, "km_insert() - Next is not after block.");
 
+    /* Insert block in between prev and next blocks in the free list. */
     block->next = next;
     prev->next = block;
     km_coalesce (block);
@@ -178,6 +179,7 @@ static km_block_header_t *km_extend (const size_t size)
     const uint32_t block_begin = kheap_end;
     kheap_end += block_size;
 
+    /* We reached the limit of the safe memory region. Virtual memory will mitigate this issue. */
     if (kheap_end > kheap_max_end)
     {
         kernel_panic ("km_extend() - Out of memory.");
@@ -215,11 +217,13 @@ static km_block_header_t *km_find (const size_t size)
         cur = cur->next;
     }
 
+    /* No valid block found, try to extend. */
     if (!cur)
     {
         return km_extend (size);
     }
 
+    /* Remove from free list. */
     if (!prev)
     {
         free_list = cur->next;
@@ -235,16 +239,19 @@ static km_block_header_t *km_find (const size_t size)
 /* Splits an unallocated block into two parts, returns the portion of 'size' bytes. */
 static km_block_header_t *km_split (km_block_header_t * const block, const size_t size)
 {
+    /* Not enough extra space to justify split. */
     if (km_getsize (block) < size + KMALLOC_MAX_INTERNAL_FRAG)
     {
         return block;
     }
 
+    /* Initialize new block header. */
     km_block_header_t * const split_block = (km_block_header_t *) (((uint8_t *) block) + size);
     km_initblock (split_block, km_getsize (block) - size);
     km_insert (split_block);
 
-    km_initblock (block, size);
+    /* Update size of original block. */
+    km_setsize (block, size);
     return block;
 }
 
@@ -258,10 +265,10 @@ void *kmalloc (const size_t size)
     }
 
     block = km_split (block, target_size);
-    km_setalloc (block, true);
+    km_setalloc (block);
     kmalloc_stats.allocation_cnt++;
     kmalloc_stats.allocation_bytes += size;
-    return block;
+    return (void *) (block + 1);
 }
 
 void *kcalloc (const size_t nelems, const size_t elemsize)
@@ -278,15 +285,79 @@ void *kcalloc (const size_t nelems, const size_t elemsize)
 
 void *krealloc (void * const ptr, const size_t size)
 {
-    // TODO:
+    /* If ptr is NULL, behaves like kmalloc(). */
+    if (!ptr)
+    {
+        return kmalloc (size);
+    }
+    else if (size == 0)
+    {
+        /* If ptr is not NULL but size is 0, behaves like kfree(). */
+        kfree (ptr);
+        return NULL;
+    }
 
-    return NULL;
+    const size_t target_size = size + sizeof (km_block_header_t);
+    km_block_header_t * const block = ((km_block_header_t *) ptr) - 1;
+
+    kernel_assert (km_checkmagic (block), "krealloc() - Bad pointer.");
+    kernel_assert (km_isalloc (block), "krealloc() - Unallocated memory.");
+
+    /* Check if the original block is large enough. */
+    if (km_getsize (block) >= target_size)
+    {
+        km_block_header_t * const new_block = km_split (block, target_size);
+        return (void *) (new_block + 1);
+    }
+
+    /* Find adjacent block in memory. */
+    km_block_header_t * const next_block = (km_block_header_t *) (((uintptr_t) block) + km_getsize (block));
+    if ((uintptr_t) next_block < kheap_end && !km_isalloc (next_block) &&
+        km_getsize (block) + km_getsize (next_block) >= target_size)
+    {
+        kernel_assert (km_checkmagic (next_block), "krealloc() - Next block corrupted.");
+
+        if (free_list == next_block)
+        {
+            free_list = block;
+        }
+
+        km_setsize (block, km_getsize (block) + km_getsize (next_block));
+        block->next = next_block->next;
+        return (void *) (block + 1);
+    }
+
+    /* Allocate new memory block. */
+    uint8_t *new_ptr = kmalloc (size);
+    if (!new_ptr)
+    {
+        return NULL;
+    }
+
+    /* Copy over data to new memory block. */
+    for (size_t i = 0; i < km_getsize (block) - sizeof (km_block_header_t); i++)
+    {
+        new_ptr[i] = ((uint8_t *) ptr)[i];
+    }
+    kfree (ptr);
+
+    return (void *) new_ptr;
 }
 
 void kfree (void * const ptr)
 {
-    kmalloc_stats.free_cnt++;
-    kmalloc_stats.free_bytes += km_getsize (ptr);
+    if (!ptr)
+    {
+        return;
+    }
 
-    // TODO:
+    km_block_header_t * const block = ((km_block_header_t *) ptr) - 1;
+    kernel_assert (km_checkmagic (block), "kfree() - Bad pointer.");
+    kernel_assert (km_isalloc (block), "kfree() - Unallocated memory.");
+
+    kmalloc_stats.free_bytes += km_getsize (block);
+    kmalloc_stats.free_cnt++;
+
+    km_clearalloc (block);
+    km_insert (block);
 }
