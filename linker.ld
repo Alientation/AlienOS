@@ -47,5 +47,6 @@ SECTIONS
 		*(.bss)
 	}
 
-	kheap_begin = .;
+	. = ALIGN(4K);
+	kernel_end = .;
 }

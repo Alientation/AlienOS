@@ -167,7 +167,7 @@ void io_writeuint (void (*output_char)(char), uint32_t d)
     }
 }
 
-static void internal_io_writeinthex (void (*const output_char)(const char), int32_t d, const char base)
+static void internal_io_writeinthex (void (*const output_char)(const char), uint32_t d, const char base)
 {
     output_char ('0');
     output_char ('x' - 'a' + base);

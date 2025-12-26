@@ -17,8 +17,9 @@
 
 #define KMALLOC_ALIGN(x, align) ((((x) + (align) - 1) / (align)) * (align))
 
-extern uint32_t kheap_begin;
+extern uint8_t kernel_end;
 
+static uint32_t kheap_begin;
 static uint32_t kheap_end;
 static uint32_t kheap_max_end;
 
@@ -54,7 +55,7 @@ static bool internal_read_multibootinfo (const multiboot_info_t *const mbinfo)
             const uint32_t start = (uint32_t) mmap->addr;
             const uint32_t end = start + (uint32_t) mmap->len;
 
-            if (start <= (uint32_t) &kheap_begin && end > (uint32_t) &kheap_begin)
+            if (start <= (uintptr_t) &kernel_end && end > (uintptr_t) &kernel_end)
             {
                 kheap_max_end = end;
                 found = true;
@@ -176,7 +177,7 @@ static km_block_header_t *km_extend (const size_t size)
 {
     const size_t block_size = KMALLOC_ALIGN (size, KMALLOC_PAGESIZE);
     const uint32_t block_begin = kheap_end;
-    kheap_end += block_size;
+    kheap_end = kheap_end + block_size;
 
     /* We reached the limit of the safe memory region. Virtual memory will mitigate this issue. */
     if (kheap_end > kheap_max_end)
@@ -186,6 +187,10 @@ static km_block_header_t *km_extend (const size_t size)
 
     km_block_header_t * const block = (km_block_header_t *) block_begin;
     km_initblock (block, block_size);
+
+#ifdef ALIENOS_TEST
+    io_serial_printf (COMPort_1, "Extending Heap [%x,%x]\n", (uintptr_t) block, ((uintptr_t) block) + km_getsize (block));
+#endif
     return block;
 }
 
@@ -199,7 +204,7 @@ void kmalloc_init (const multiboot_info_t * const mbinfo)
 
     kernel_assert (internal_read_multibootinfo (mbinfo), "kmalloc_init() - Failed to read multiboot info.");
 
-    kheap_begin = KMALLOC_ALIGN (kheap_begin, KMALLOC_PAGESIZE);
+    kheap_begin = KMALLOC_ALIGN ((uintptr_t) &kernel_end, KMALLOC_PAGESIZE);
     kheap_end = kheap_begin;
     km_insert (km_extend (KMALLOC_HEAP_INIT_SIZE));
     io_serial_printf (COMPort_1, "Kernal Heap: [%x, %x] (MAX %x)\n", kheap_begin, kheap_end, kheap_max_end);
@@ -252,7 +257,9 @@ static km_block_header_t *km_split (km_block_header_t * const block, const size_
     /* Update size of original block. */
     km_setsize (block, size);
 
+#ifdef ALIENOS_TEST
     io_serial_printf (COMPort_1, "New block at %x (%x,%x)\n", (uintptr_t) split_block, size, km_getsize (split_block));
+#endif
     return block;
 }
 
@@ -269,6 +276,10 @@ void *kmalloc (const size_t size)
     km_setalloc (block);
     kmalloc_stats.allocation_cnt++;
     kmalloc_stats.allocation_bytes += km_getsize (block);
+
+#ifdef ALIENOS_TEST
+    io_serial_printf (COMPort_1, "Allocating Block [%x,%x]\n", (uintptr_t) block, ((uintptr_t) block) + km_getsize (block));
+#endif
     return (void *) (block + 1);
 }
 
