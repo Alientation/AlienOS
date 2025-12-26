@@ -1,0 +1,14 @@
+[ ] Internal Unit Tests
+    [ ] kmalloc
+    [ ] Serial IO
+[ ] External Unit Tests
+    [ ] Serial IO, ensure output is sent out correctly
+[ ] Terminal scrolling
+    - With dynamic memory, should be easy
+[ ] Interrupt Descriptor Tables
+[ ] Threads
+    [ ] Scheduler
+    [ ] Synchronization
+[ ] Virtual Memory
+[ ] File System
+[ ] Device Drivers

@@ -20,9 +20,12 @@ KERNEL_OBJS := $(patsubst src/%.c, build/%.o, $(KERNEL_CSRCS))
 KERNEL_OBJS += $(patsubst src/%.s, build/%.o, $(KERNEL_ASRCS))
 LIBC_OBJS := $(patsubst libc/src/%.c, build/libc/%.o, $(LIBC_SRCS))
 
-.PHONY: all clean qemu build build/isodir/boot/grub
+.PHONY: all clean qemu test build build/isodir/boot/grub
 
 all: iso/alienos.iso
+
+test: clean
+	$(eval CFLAGS += -DALIENOS_TEST)
 
 # Create build directories
 build build/isodir/boot/grub:
