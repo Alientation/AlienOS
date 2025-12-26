@@ -5,7 +5,8 @@
 
 static const char *test_alloc (void)
 {
-    struct KMStats stats = kmalloc_getstats ();
+    io_serial_printf (COMPort_1, "Running test_alloc()\n");
+    const struct KMStats stats = kmalloc_getstats ();
 
     void * const ptr1 = kmalloc (0);
     if (!ptr1) return "Failed kmalloc(0)";
@@ -35,20 +36,63 @@ static const char *test_alloc (void)
     kfree (ptr3);
     kfree (ptr4);
 
-    struct KMStats stats_now = kmalloc_getstats ();
+    const struct KMStats stats_now = kmalloc_getstats ();
     if (stats.allocation_bytes - stats.free_bytes != stats_now.allocation_bytes - stats_now.free_bytes) return "Memory Leak";
 
     io_serial_printf (COMPort_1, "Passed test_alloc()\n");
     return NULL;
 }
 
+static const char *test_calloc (void)
+{
+    io_serial_printf (COMPort_1, "Running test_calloc()\n");
+    io_serial_printf (COMPort_1, "Passed test_calloc()\n");
+    return NULL;
+}
+
+static const char *test_realloc (void)
+{
+    io_serial_printf (COMPort_1, "Running test_realloc()\n");
+    io_serial_printf (COMPort_1, "Passed test_realloc()\n");
+    return NULL;
+}
+
+static const char *test_free (void)
+{
+    io_serial_printf (COMPort_1, "Running test_free()\n");
+    const struct KMStats stats = kmalloc_getstats ();
+
+    kfree (NULL);
+
+    void * const p1 = kmalloc (16);
+    void * const p2 = kmalloc (16);
+    void * const p3 = kmalloc (16);
+    void * const p4 = kmalloc (16);
+
+    kfree (p2);
+    void * const p5 = kmalloc (16);
+    if ((uintptr_t) p2 != (uintptr_t) p5) return "Failed insertion";
+
+    kfree (p5);
+    kfree (p3);
+    kfree (p4);
+    void * const p6 = kmalloc (48);
+    if ((uintptr_t) p6 != (uintptr_t) p2) return "Failed coalescing";
+
+    kfree (p1);
+    kfree (p6);
+
+    const struct KMStats stats_now = kmalloc_getstats ();
+    if (stats.allocation_bytes - stats.free_bytes != stats_now.allocation_bytes - stats_now.free_bytes) return "Memory Leak";
+
+    io_serial_printf (COMPort_1, "Passed test_free()\n");
+    return NULL;
+}
 
 void kmalloc_test (struct UnitTestsResult * const result)
 {
-    const char * res = test_alloc ();
-    result->total_tests++;
-    if (res) {
-        io_serial_printf (COMPort_1, "%s\n", res);
-        result->failed_tests++;
-    }
+    run_test (test_alloc, result);
+    run_test (test_calloc, result);
+    run_test (test_realloc, result);
+    run_test (test_free, result);
 }

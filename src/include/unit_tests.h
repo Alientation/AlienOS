@@ -10,8 +10,9 @@ struct UnitTestsResult
 };
 
 void kmalloc_test (struct UnitTestsResult *result);
-void io_test (struct UnitTestsResult * const result);
+void io_test (struct UnitTestsResult *result);
 
 void unit_tests ();
+void run_test (const char *(*test)(void), struct UnitTestsResult *result);
 
 #endif /* SRC_INCLUDE_UNIT_TESTS_H */
