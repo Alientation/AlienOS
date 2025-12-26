@@ -5,7 +5,7 @@
 
 static const char *test_alloc (void)
 {
-    io_serial_printf (COMPort_1, "Running test_alloc()\n");
+    io_serial_printf (COMPort_1, "\nRunning test_alloc()\n");
     const struct KMStats stats = kmalloc_getstats ();
 
     void * const ptr1 = kmalloc (0);
@@ -45,21 +45,34 @@ static const char *test_alloc (void)
 
 static const char *test_calloc (void)
 {
-    io_serial_printf (COMPort_1, "Running test_calloc()\n");
+    io_serial_printf (COMPort_1, "\nRunning test_calloc()\n");
+
+    uint32_t * const p1 = kmalloc (16);
+    const uint32_t p1_data[4] = {0xFEEDF00D, 0xF00BAD12, 0x1357ACEF, 0x02468BDE};
+    for (size_t i = 0; i < sizeof (p1_data) / sizeof (p1_data[0]); i++) p1[i] = p1_data[i];
+
+    kfree (p1);
+
+    uint32_t * const p2 = kcalloc (4, 4);
+    if ((uintptr_t) p1 != (uintptr_t) p2) return "Failed insertion";
+    for (size_t i = 0; i < 4; i++) if (p2[i] != 0) return "Failed to clear memory";
+
+    kfree (p2);
+
     io_serial_printf (COMPort_1, "Passed test_calloc()\n");
     return NULL;
 }
 
 static const char *test_realloc (void)
 {
-    io_serial_printf (COMPort_1, "Running test_realloc()\n");
+    io_serial_printf (COMPort_1, "\nRunning test_realloc()\n");
     io_serial_printf (COMPort_1, "Passed test_realloc()\n");
     return NULL;
 }
 
 static const char *test_free (void)
 {
-    io_serial_printf (COMPort_1, "Running test_free()\n");
+    io_serial_printf (COMPort_1, "\nRunning test_free()\n");
     const struct KMStats stats = kmalloc_getstats ();
 
     kfree (NULL);
