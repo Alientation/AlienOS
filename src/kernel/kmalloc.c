@@ -2,7 +2,6 @@
 #include "kernel.h"
 #include "io.h"
 
-#include <stdint.h>
 #include <stdbool.h>
 
 #define KMALLOC_PAGESIZE 4096
@@ -23,13 +22,7 @@ extern uint32_t kheap_begin;
 static uint32_t kheap_end;
 static uint32_t kheap_max_end;
 
-struct KMStats
-{
-    uint32_t allocation_cnt;            /* How many times the kmalloc(), kcalloc(), or krealloc() is called. */
-    size_t allocation_bytes;            /* How many bytes was requested in total. */
-    uint32_t free_cnt;                  /* How many times kfree() is called. */
-    size_t free_bytes;                  /* How many bytes was freed in total. */
-} kmalloc_stats = {};
+static struct KMStats kmalloc_stats = {};
 
 
 typedef struct __attribute__((packed)) KMBlockHeader
@@ -150,6 +143,7 @@ static void km_insert (km_block_header_t * const block)
     {
         block->next = free_list;
         free_list = block;
+        km_coalesce (free_list);
         return;
     }
 
@@ -158,12 +152,16 @@ static void km_insert (km_block_header_t * const block)
 
     while (next != NULL && (uintptr_t) next < (uintptr_t) block)
     {
+        prev = next;
         next = next->next;
     }
 
-    kernel_assert (prev->next == next, "km_insert() - Mismatch prev/next.");
-    kernel_assert (((uintptr_t) prev) + km_getsize (prev) <= (uintptr_t) block, "km_insert() - Prev is not before block.");
-    kernel_assert (((uintptr_t) block) + km_getsize (block) <= (uintptr_t) next, "km_insert() - Next is not after block.");
+    kernel_assert (prev->next == next, "km_insert() - Mismatch prev/next (%x,%x).",
+                   (uintptr_t) prev->next, (uintptr_t) next);
+    kernel_assert (((uintptr_t) prev) + km_getsize (prev) <= (uintptr_t) block,
+                   "km_insert() - Prev is not before block (%x,%x).", (uintptr_t) prev, (uintptr_t) block);
+    kernel_assert (next == NULL || ((uintptr_t) block) + km_getsize (block) <= (uintptr_t) next,
+                   "km_insert() - Next is not after block (%x,%x).", (uintptr_t) block, (uintptr_t) next);
 
     /* Insert block in between prev and next blocks in the free list. */
     block->next = next;
@@ -253,12 +251,14 @@ static km_block_header_t *km_split (km_block_header_t * const block, const size_
 
     /* Update size of original block. */
     km_setsize (block, size);
+
+    io_serial_printf (COMPort_1, "New block at %x (%x,%x)\n", (uintptr_t) split_block, size, km_getsize (split_block));
     return block;
 }
 
 void *kmalloc (const size_t size)
 {
-    const size_t target_size = size + sizeof (km_block_header_t);
+    const size_t target_size = KMALLOC_ALIGN (size + sizeof (km_block_header_t), KMALLOC_ALIGNMENT);
     km_block_header_t *block = km_find (target_size);
     if (!block)
     {
@@ -298,7 +298,7 @@ void *krealloc (void * const ptr, const size_t size)
         return NULL;
     }
 
-    const size_t target_size = size + sizeof (km_block_header_t);
+    const size_t target_size = KMALLOC_ALIGN (size + sizeof (km_block_header_t), KMALLOC_ALIGNMENT);
     km_block_header_t * const block = ((km_block_header_t *) ptr) - 1;
 
     kernel_assert (km_checkmagic (block), "krealloc() - Bad pointer.");
@@ -329,7 +329,7 @@ void *krealloc (void * const ptr, const size_t size)
     }
 
     /* Allocate new memory block. */
-    uint8_t *new_ptr = kmalloc (size);
+    uint8_t * const new_ptr = kmalloc (size);
     if (!new_ptr)
     {
         return NULL;
@@ -371,5 +371,17 @@ void kmalloc_printdebug (void)
     io_serial_printf (COMPort_1, "> Total Allocated Bytes: %u\n> Total Freed Bytes: %u\n",
                       kmalloc_stats.allocation_bytes, kmalloc_stats.free_bytes);
 
-    /* TODO: Should also print free list */
+    const km_block_header_t * cur = free_list;
+    while (cur)
+    {
+        io_serial_printf (COMPort_1, "> [%x,%x]\n", (uintptr_t) cur, ((uintptr_t) cur) + km_getsize (cur));
+        io_serial_printf (COMPort_1, "\t> Allocated:%b, Valid Magic: %b, Size: %x\n",
+                          km_isalloc (cur), km_checkmagic (cur), km_getsize (cur));
+        cur = cur->next;
+    }
+}
+
+struct KMStats kmalloc_getstats (void)
+{
+    return kmalloc_stats;
 }

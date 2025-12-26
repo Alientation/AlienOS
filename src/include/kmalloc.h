@@ -4,6 +4,7 @@
 #include "multiboot.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 /*
     Kernel memory layout
@@ -23,6 +24,13 @@
     | LOW ADDRESS
     ======================
 */
+struct KMStats
+{
+    uint32_t allocation_cnt;            /* How many times the kmalloc(), kcalloc(), or krealloc() is called. */
+    size_t allocation_bytes;            /* How many bytes was requested in total. */
+    uint32_t free_cnt;                  /* How many times kfree() is called. */
+    size_t free_bytes;                  /* How many bytes was freed in total. */
+};
 
 /* Initializes the kernel memory manager. */
 void kmalloc_init (const multiboot_info_t *mbinfo);
@@ -43,5 +51,8 @@ void kfree (void *ptr);
 
 /* Debug log. */
 void kmalloc_printdebug (void);
+
+/* Get stats. */
+struct KMStats kmalloc_getstats (void);
 
 #endif /* SRC_INCLUDE_KAMLLOC_H */
