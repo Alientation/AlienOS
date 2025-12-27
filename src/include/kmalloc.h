@@ -43,10 +43,11 @@ void *kmalloc (size_t size);
 void *kcalloc (size_t nelems, size_t elemsize);
 
 /* Resizes a chunck of memory to 'size' bytes. The contents will remain unchanged.
-   If a new block is needed, the contents are copied over and the old block is freed. */
+   If a new block is needed, the contents are copied over and the old block is freed. If ptr is
+   NULL, behaves exactly like kmalloc(size). If size is 0, free's memory block and returns NULL. */
 void *krealloc (void *ptr, size_t size);
 
-/* Free memory block. */
+/* Free memory block. If ptr is NULL, nothing is done. */
 void kfree (void *ptr);
 
 /* Debug log. */

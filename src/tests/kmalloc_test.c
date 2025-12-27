@@ -66,6 +66,28 @@ static const char *test_calloc (void)
 static const char *test_realloc (void)
 {
     io_serial_printf (COMPort_1, "\nRunning test_realloc()\n");
+
+    void * const p1 = kmalloc (4);
+    if (!p1) return "Failed malloc";
+
+    void *const p2 = krealloc (p1, 8);
+    if ((uintptr_t) p1 != (uintptr_t) p2) return "Resized when original block is large enough";
+
+    uint32_t * const p3 = krealloc (p2, 32);
+    if ((uintptr_t) p2 != (uintptr_t) p3) return "Failed to resize";
+
+    for (size_t i = 0; i < 8; i++) p3[i] = i;
+
+    void * const p4 = kmalloc (32);
+    uint32_t * const p5 = krealloc (p3, 64);
+    if ((uintptr_t) p5 == (uintptr_t) p3) return "Failed to reallocate";
+
+    for (size_t i = 0; i < 8; i++)
+        if (p5[i] != i) return "Failed to maintain data";
+
+    kfree (p4);
+    kfree (p5);
+
     io_serial_printf (COMPort_1, "Passed test_realloc()\n");
     return NULL;
 }

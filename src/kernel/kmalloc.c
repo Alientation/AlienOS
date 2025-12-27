@@ -318,6 +318,9 @@ void *krealloc (void * const ptr, const size_t size)
     /* Check if the original block is large enough. */
     if (km_getsize (block) >= target_size)
     {
+#ifdef ALIENOS_TEST
+        io_serial_printf (COMPort_1, "Reallocating to the same block.\n");
+#endif
         km_block_header_t * const new_block = km_split (block, target_size);
         return (void *) (new_block + 1);
     }
@@ -327,15 +330,30 @@ void *krealloc (void * const ptr, const size_t size)
     if ((uintptr_t) next_block < kheap_end && !km_isalloc (next_block) &&
         km_getsize (block) + km_getsize (next_block) >= target_size)
     {
+#ifdef ALIENOS_TEST
+        io_serial_printf (COMPort_1, "Resizing block to include adjacent block.\n");
+#endif
         kernel_assert (km_checkmagic (next_block), "krealloc() - Next block corrupted.");
 
         if (free_list == next_block)
         {
-            free_list = block;
+            free_list = next_block->next;
+        }
+        else
+        {
+            km_block_header_t *cur = free_list;
+            while (cur && cur->next != next_block)
+            {
+                cur = cur->next;
+            }
+            kernel_assert (cur, "krealloc() - Next block is unallocated but not in free list.");
+
+            cur->next = next_block->next;
+            // TODO: should purposefully corrupt the magic number of all the block headers that are deallocated.
         }
 
         km_setsize (block, km_getsize (block) + km_getsize (next_block));
-        block->next = next_block->next;
+        km_split (block, target_size);
         return (void *) (block + 1);
     }
 
