@@ -56,4 +56,9 @@ void kmalloc_printdebug (void);
 /* Get stats. */
 struct KMStats kmalloc_getstats (void);
 
+#ifdef ALIENOS_TEST
+void kmalloc_enabledebug ();
+void kmalloc_disabledebug ();
+#endif
+
 #endif /* SRC_INCLUDE_KAMLLOC_H */

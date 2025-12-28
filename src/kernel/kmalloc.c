@@ -23,6 +23,25 @@ static uint32_t kheap_begin;
 static uint32_t kheap_end;
 static uint32_t kheap_max_end;
 
+#ifdef ALIENOS_TEST
+static bool enable_debug_print = true;
+
+void kmalloc_enabledebug ()
+{
+    enable_debug_print = true;
+}
+
+void kmalloc_disabledebug ()
+{
+    enable_debug_print = false;
+}
+
+#define DEBUG(...) \
+    do { if (enable_debug_print) io_serial_printf (COMPort_1, __VA_ARGS__); } while (0)
+#else
+#define DEBUG(...) ;
+#endif
+
 static struct KMStats kmalloc_stats = {};
 
 
@@ -46,7 +65,7 @@ static bool internal_read_multibootinfo (const multiboot_info_t *const mbinfo)
     multiboot_memory_map_t *mmap = (multiboot_memory_map_t *) mbinfo->mmap_addr;
 
     /* https://www.gnu.org/software/grub/manual/multiboot/multiboot.html#Boot-information-format */
-    io_serial_printf (COMPort_1, "Searching Multiboot mmap\n");
+    DEBUG ("Searching Multiboot mmap\n");
     while ((uint32_t) mmap < mbinfo->mmap_addr + mbinfo->mmap_length)
     {
         /* If memory is available RAM, then check if the kernel is contained within. */
@@ -60,12 +79,12 @@ static bool internal_read_multibootinfo (const multiboot_info_t *const mbinfo)
                 kheap_max_end = end;
                 found = true;
 
-                io_serial_printf (COMPort_1, "> Found memory block: %x, %x \tTARGET FOUND\n", start, end);
+                DEBUG ("> Found memory block: %x, %x \tTARGET FOUND\n", start, end);
                 break;
             }
             else
             {
-                io_serial_printf (COMPort_1, "> Found memory block: %x, %x\n", start, end);
+                DEBUG ("> Found memory block: %x, %x\n", start, end);
             }
         }
 
@@ -188,9 +207,7 @@ static km_block_header_t *km_extend (const size_t size)
     km_block_header_t * const block = (km_block_header_t *) block_begin;
     km_initblock (block, block_size);
 
-#ifdef ALIENOS_TEST
-    io_serial_printf (COMPort_1, "Extending Heap [%x,%x]\n", (uintptr_t) block, ((uintptr_t) block) + km_getsize (block));
-#endif
+    DEBUG ("Extending Heap [%x,%x]\n", (uintptr_t) block, ((uintptr_t) block) + km_getsize (block));
     return block;
 }
 
@@ -207,7 +224,7 @@ void kmalloc_init (const multiboot_info_t * const mbinfo)
     kheap_begin = KMALLOC_ALIGN ((uintptr_t) &kernel_end, KMALLOC_PAGESIZE);
     kheap_end = kheap_begin;
     km_insert (km_extend (KMALLOC_HEAP_INIT_SIZE));
-    io_serial_printf (COMPort_1, "Kernal Heap: [%x, %x] (MAX %x)\n", kheap_begin, kheap_end, kheap_max_end);
+    DEBUG ("Kernal Heap: [%x, %x] (MAX %x)\n", kheap_begin, kheap_end, kheap_max_end);
 }
 
 /* Find first block to satisfy request size. Removes from the free list if found, otherwise extends. */
@@ -257,9 +274,7 @@ static km_block_header_t *km_split (km_block_header_t * const block, const size_
     /* Update size of original block. */
     km_setsize (block, size);
 
-#ifdef ALIENOS_TEST
-    io_serial_printf (COMPort_1, "New block at %x (%x,%x)\n", (uintptr_t) split_block, size, km_getsize (split_block));
-#endif
+    DEBUG ("New block at %x (%x,%x)\n", (uintptr_t) split_block, size, km_getsize (split_block));
     return block;
 }
 
@@ -277,9 +292,7 @@ void *kmalloc (const size_t size)
     kmalloc_stats.allocation_cnt++;
     kmalloc_stats.allocation_bytes += km_getsize (block);
 
-#ifdef ALIENOS_TEST
-    io_serial_printf (COMPort_1, "Allocating Block [%x,%x]\n", (uintptr_t) block, ((uintptr_t) block) + km_getsize (block));
-#endif
+    DEBUG ("Allocating Block [%x,%x]\n", (uintptr_t) block, ((uintptr_t) block) + km_getsize (block));
     return (void *) (block + 1);
 }
 
@@ -318,9 +331,7 @@ void *krealloc (void * const ptr, const size_t size)
     /* Check if the original block is large enough. */
     if (km_getsize (block) >= target_size)
     {
-#ifdef ALIENOS_TEST
-        io_serial_printf (COMPort_1, "Reallocating to the same block.\n");
-#endif
+        DEBUG ("Reallocating to the same block.\n");
         km_block_header_t * const new_block = km_split (block, target_size);
         return (void *) (new_block + 1);
     }
@@ -330,9 +341,7 @@ void *krealloc (void * const ptr, const size_t size)
     if ((uintptr_t) next_block < kheap_end && !km_isalloc (next_block) &&
         km_getsize (block) + km_getsize (next_block) >= target_size)
     {
-#ifdef ALIENOS_TEST
-        io_serial_printf (COMPort_1, "Resizing block to include adjacent block.\n");
-#endif
+        DEBUG ("Resizing block to include adjacent block.\n");
         kernel_assert (km_checkmagic (next_block), "krealloc() - Next block corrupted.");
 
         if (free_list == next_block)
@@ -394,18 +403,18 @@ void kfree (void * const ptr)
 
 void kmalloc_printdebug (void)
 {
-    io_serial_printf (COMPort_1, "Kernel Heap: %u Allocations, %u Releases\n",
+    DEBUG ("Kernel Heap: %u Allocations, %u Releases\n",
                       kmalloc_stats.allocation_cnt, kmalloc_stats.free_cnt);
 
-    io_serial_printf (COMPort_1, "> Total Allocated Bytes: %u\n> Total Freed Bytes: %u\n",
+    DEBUG ("> Total Allocated Bytes: %u\n> Total Freed Bytes: %u\n",
                       kmalloc_stats.allocation_bytes, kmalloc_stats.free_bytes);
 
-    const km_block_header_t * cur = free_list;
+    const km_block_header_t *cur = free_list;
     while (cur)
     {
-        io_serial_printf (COMPort_1, "> [%x,%x]\n", (uintptr_t) cur, ((uintptr_t) cur) + km_getsize (cur));
-        io_serial_printf (COMPort_1, "\t> Allocated:%b, Valid Magic: %b, Size: %x\n",
-                          km_isalloc (cur), km_checkmagic (cur), km_getsize (cur));
+        DEBUG ("> [%x,%x]\n", (uintptr_t) cur, ((uintptr_t) cur) + km_getsize (cur));
+        DEBUG ("\t> Allocated:%b, Valid Magic: %b, Size: %x\n",
+              km_isalloc (cur), km_checkmagic (cur), km_getsize (cur));
         cur = cur->next;
     }
 }
