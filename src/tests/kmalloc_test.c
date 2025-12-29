@@ -196,14 +196,22 @@ static const char *test_free (void)
 
 void kmalloc_test (struct UnitTestsResult * const result)
 {
+    /* TODO: cleaner ways to handle this, macro it out? */
+#ifdef ALIENOS_TEST
     kmalloc_enabledebug ();
+#endif
     run_test (test_alloc, result);
     run_test (test_calloc, result);
     run_test (test_realloc, result);
     run_test (test_free, result);
 
+#ifdef ALIENOS_TEST
     kmalloc_disabledebug ();
+#endif
     run_test (test_short, result);
     run_test (test_extensive, result);
+
+#ifdef ALIENOS_TEST
     kmalloc_enabledebug ();
+#endif
 }
