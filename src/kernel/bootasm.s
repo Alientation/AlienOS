@@ -20,8 +20,10 @@ stack_bottom:
 stack_top:
 
 
-/* Entry into kernel. */
 .section .text
+.align 4
+
+/* Entry into kernel. */
 .global _start
 .type _start, @function
 _start:

@@ -1,5 +1,5 @@
 [ ] Internal Unit Tests
-    [ ] kmalloc
+    [x] kmalloc
     [ ] Serial IO
 [ ] External Unit Tests
     [ ] Serial IO, ensure output is sent out correctly

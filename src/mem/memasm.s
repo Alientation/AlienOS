@@ -6,6 +6,7 @@ gdtr:
 
 
 .section .text
+.align 4
 
 /* Initialize the GDT pointer.
    https://wiki.osdev.org/GDT_Tutorial#Survival_Glossary */
