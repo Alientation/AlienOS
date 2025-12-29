@@ -1,6 +1,7 @@
 #include "kernel.h"
 #include "terminal.h"
 #include "io.h"
+#include "interrupt.h"
 #include "mem.h"
 #include "multiboot.h"
 #include "kmalloc.h"
@@ -73,6 +74,9 @@ void kernel_main(const unsigned int magic, const multiboot_info_t * const mbinfo
 
 	/* Initialize the global descriptor table. */
 	gdt_init ();
+
+	/* Initialize the interrupt descriptor table. */
+	idt_init ();
 
 	/* Initialize the kernel memory manageer. */
 	kmalloc_init (mbinfo);

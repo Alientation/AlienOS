@@ -24,6 +24,9 @@ stack_top:
 gdtr:
     .word 0     /* 16 bit size of GDT table */
     .long 0     /* 32 bit base address of GDT table */
+idtr:
+    .word 0     /* 16 bit size of the IDT table */
+    .long 0     /* 32 bit base address of IDT table */
 
 
 /* Entry into kernel. */
@@ -41,6 +44,24 @@ _start:
 1:  hlt                             /* wait for next interrupt */
     jmp 1b                          /* jump back to hlt instruction if we wake up */
 .size _start, . - _start
+
+
+/* Initialize the IDT pointer. */
+.global idtr_init
+.type idtr_init, @function
+idtr_init:
+    /* Load the IDT table size. */
+    movw 4(%esp), %ax
+    movw %ax, idtr
+
+    /* Load the IDT base address. */
+    movl 8(%esp), %eax
+    movl %eax, idtr + 2
+
+    /* Load IDTR into the CPU register. */
+    lidt idtr
+    ret
+.size idtr_init, . - idtr_init
 
 
 /* Initialize the GDT pointer.

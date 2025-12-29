@@ -1,6 +1,7 @@
 #include "mem.h"
 #include "kernel.h"
 
+/* TODO: Should use struct with 2 uint32_t instead since we are targetting a 32 bit architecture. */
 uint64_t gdt[5];
 extern void gdtr_init (uint16_t size, uint32_t offset);
 
@@ -72,10 +73,10 @@ void gdt_init (void)
     init = true;
 
     /* Null descriptor. */
-    gdt[0] = 0;
+    gdt[SegmentNull] = 0;
 
     /* Kernel mode code segment. */
-    gdt_insert (&gdt[1], (struct SegmentDescriptor)
+    gdt_insert (&gdt[SegmentKernelCode], (struct SegmentDescriptor)
     {
         .base = 0,
         .limit = 0xFFFFF,
@@ -85,7 +86,7 @@ void gdt_init (void)
     });
 
     /* Kernel mode data segment. */
-    gdt_insert (&gdt[2], (struct SegmentDescriptor)
+    gdt_insert (&gdt[SegmentKernelData], (struct SegmentDescriptor)
     {
         .base = 0,
         .limit = 0xFFFFF,
@@ -95,7 +96,7 @@ void gdt_init (void)
     });
 
     /* User mode code segment. */
-    gdt_insert (&gdt[3], (struct SegmentDescriptor)
+    gdt_insert (&gdt[SegmentUserCode], (struct SegmentDescriptor)
     {
         .base = 0,
         .limit = 0xFFFFF,
@@ -105,7 +106,7 @@ void gdt_init (void)
     });
 
     /* User mode data segment. */
-    gdt_insert (&gdt[4], (struct SegmentDescriptor)
+    gdt_insert (&gdt[SegmentUserData], (struct SegmentDescriptor)
     {
         .base = 0,
         .limit = 0xFFFFF,

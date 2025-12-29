@@ -4,6 +4,16 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+enum Segment
+{
+    SegmentNull = 0,
+    SegmentKernelCode = 1,
+    SegmentKernelData = 2,
+    SegmentUserCode = 3,
+    SegmentUserData = 4,
+    SegmentTask = 5,
+};
+
 /* Privilege level of segment. */
 enum SegmentPrivilege
 {
