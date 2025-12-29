@@ -196,6 +196,7 @@ static const char *test_free (void)
 
 void kmalloc_test (struct UnitTestsResult * const result)
 {
+    kmalloc_enabledebug ();
     run_test (test_alloc, result);
     run_test (test_calloc, result);
     run_test (test_realloc, result);
