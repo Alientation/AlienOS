@@ -6,12 +6,35 @@
 #include "stdbool.h"
 #include "stdint.h"
 
+/* IO port addresses for 8259 PIC. */
 #define PIC1 0x20
 #define PIC2 0xA0
 #define PIC1_COMMAND PIC1
 #define PIC1_DATA (PIC1 + 1)
 #define PIC2_COMMAND PIC2
 #define PIC2_DATA (PIC2 + 1)
+
+/* End of interrupt command code. */
+#define PIC_EOI 0x20
+
+/* Initialization Control Word (ICW) 1
+   https://brokenthorn.com/Resources/OSDevPic.html */
+#define ICW1_ICW4 0x01              /* (1) PIC expects to receive IC4 during initialization */
+#define ICW1_SINGLE 0x02            /* (1) Only one PIC in system, (0) PIC is cascaded with slave PICs,
+                                       ICW3 must be sent to controller */
+#define ICW1_INTERVAL4 0x04         /* (1) CALL address interval is 4, (0) interval is 8 */
+#define ICW1_LEVEL 0x08             /* (1) Level triggered mode, (0) Edge triggered mode */
+#define ICW1_INIT 0x10              /* (1) PIC will be initialized */
+
+/* Initialization Control Word (ICW) 4 */
+#define ICW4_8086 0x01              /* (1) 80x86 mode, (0) MCS-80/86 mode */
+#define ICW4_AUTO 0x02              /* (1) Automatic EOI operation on last interrupt acknowledge pulse */
+#define ICW4_BUF_SLAVE 0x08         /* 2 bits, select buffer slave */
+#define ICW4_BUF_MASTER 0x0C        /* 2 bits, select buffer master */
+#define ICW4_SFNM 0x10              /* Special fully nested mode, used in systems with large amount
+                                       of cascaded controllers */
+
+#define CASCADE_IRQ 2               /* IRQ that cascades from Master PIC to Slave PIC */
 
 struct GateDescriptor
 {
@@ -66,6 +89,56 @@ ISR (HV, 0x1C);
 ISR (VC, 0x1D);
 ISR (SX, 0x1E);
 ISR (SYS, 0x80);
+
+/* Send the end of interrupt command to PIC chips. If IRQ came from slave PIC, need to send to both
+   master and slave.
+   https://wiki.osdev.org/8259_PIC#Programming_with_the_8259_PIC */
+static inline void PIC_eoi (uint8_t irq)
+{
+    if (irq >= 8)
+    {
+        io_outb (PIC2_COMMAND, PIC_EOI);
+    }
+    io_outb (PIC1_COMMAND, PIC_EOI);
+}
+
+/* Remap the PIC controllers given interrupt vector offsets.
+   Master vectors go from offset1..offset1+7 and
+   slave vectors go from offset2..offset2+7.
+   https://brokenthorn.com/Resources/OSDevPic.html */
+static void PIC_remap (uint8_t offset1, uint8_t offset2)
+{
+    /* ICW1 begin initialization sequence. */
+    io_outb (PIC1_COMMAND, ICW1_INIT | ICW1_ICW4);
+    io_wait ();
+    io_outb (PIC2_COMMAND, ICW1_INIT | ICW1_ICW4);
+
+    /* ICW2 master PIC vector offset. */
+    io_wait ();
+    io_outb (PIC1_DATA, offset1);
+
+    /* ICW2 slave PIC vector offset. */
+    io_wait ();
+    io_outb (PIC2_DATA, offset2);
+
+    /* ICW3 tell master IRQ2 is connected to slave PIC. */
+    io_wait ();
+    outb (PIC1_DATA, 1 << CASCADE_IRQ);
+
+    /* ICW3 tell slave PIC it's cascade identity. */
+    io_wait ();
+    outb (PIC2_DATA, CASCADE_IRQ);
+
+    /* ICW4 have PICs use 8086 mode. */
+    io_wait ();
+    io_outb (PIC1_DATA, ICW4_8086);
+    io_wait ();
+    io_outb (PIC2_DATA, ICW4_8086);
+
+    /* Unmask Interrupt Mask Register. */
+    outb (PIC1_DATA, 0);
+    outb (PIC2_DATA, 0);
+}
 
 /* https://wiki.osdev.org/Interrupt_Service_Routines */
 void interrupt_handler (struct InterruptFrame * const frame)
