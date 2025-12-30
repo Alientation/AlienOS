@@ -140,6 +140,22 @@ static void PIC_remap (uint8_t offset1, uint8_t offset2)
     outb (PIC2_DATA, 0);
 }
 
+/* Set IRQ mask bit which will cause the PIC to ignore the specific interrupt request. */
+static void IRQ_set_mask (uint8_t irqline)
+{
+    const uint16_t port = (irqline < 8) ? PIC1_DATA : PIC2_DATA;
+    const uint8_t value = io_inb (port) | (1 << (irqline & 0b111));
+    io_outb (port, value);
+}
+
+/* Clear IRQ mask bit which will cause the PIC to ignore the specific interrupt request. */
+static void IRQ_clear_mask (uint8_t irqline)
+{
+    const uint16_t port = (irqline < 8) ? PIC1_DATA : PIC2_DATA;
+    const uint8_t value = io_inb (port) & ~(1 << (irqline & 0b111));
+    io_outb (port, value);
+}
+
 /* https://wiki.osdev.org/Interrupt_Service_Routines */
 void interrupt_handler (struct InterruptFrame * const frame)
 {
