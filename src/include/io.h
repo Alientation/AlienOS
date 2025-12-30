@@ -77,6 +77,54 @@ static inline uint8_t io_serial_inb (const enum COMPort port)
     return ret;
 }
 
+/* Write byte to general IO port. */
+static inline void io_outb (const uint16_t port_addr, const uint8_t val)
+{
+    asm volatile ("outb %0, %1" : : "a"(val), "Nd"(port_addr));
+}
+
+/* Write 2 bytes to general IO port. */
+static inline void io_outw (const uint16_t port_addr, const uint16_t val)
+{
+    asm volatile ("outw %0, %1" : : "a"(val), "Nd"(port_addr));
+}
+
+/* Write 4 bytes to general IO port. */
+static inline void io_outl (const uint16_t port_addr, const uint32_t val)
+{
+    asm volatile ("outl %0, %1" : : "a"(val), "Nd"(port_addr));
+}
+
+/* Read byte from general IO port. */
+static inline uint8_t io_inb (const uint16_t port_addr)
+{
+    uint8_t ret;
+    asm volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port_addr));
+    return ret;
+}
+
+/* Read 2 bytes from general IO port. */
+static inline uint16_t io_inw (const uint16_t port_addr)
+{
+    uint16_t ret;
+    asm volatile ("inw %1, %0" : "=a"(ret) : "Nd"(port_addr));
+    return ret;
+}
+
+/* Read 2 bytes from general IO port. */
+static inline uint32_t io_inl (const uint16_t port_addr)
+{
+    uint32_t ret;
+    asm volatile ("inl %1, %0" : "=a"(ret) : "Nd"(port_addr));
+    return ret;
+}
+
+/* Small delay by writing to unused IO port. */
+static inline void io_wait (void)
+{
+    io_outb (0x80, 0);
+}
+
 /* Character output helpers to pass into generic io_printf for serial ports. */
 #define IO_COMN_OUTB(n)                         \
 static void io_com##n##_outb (const char c)     \

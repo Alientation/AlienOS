@@ -1,6 +1,10 @@
 #ifndef SRC_INCLUDE_INTERRUPT_H
 #define SRC_INCLUDE_INTERRUPT_H
 
+#include "eflags.h"
+
+#include <stdbool.h>
+
 enum InterruptPrivilege
 {
     InterruptPrivilege_Ring0 = 0,           /* Highest privilege (Kernel) */
@@ -18,7 +22,21 @@ enum InterruptType
     InterruptType_32bit_Trap = 0xF,
 };
 
-
+/* Initializes the Interrupt Descriptor Table. */
 void idt_init (void);
+
+/* Returns if interrupts are enabled. */
+static inline bool interrupt_is_enabled (void)
+{
+    return eflags_checkflag (EFLAGS_IF);
+}
+
+/* Enables/disables interrupts and returns the previous interrupt enable state to allow for restoring. */
+static inline bool interrupt_set_enabled (bool enabled)
+{
+    const bool prev_enabled = interrupt_is_enabled ();
+    eflags_setbit (EFLAGS_IF_BIT, enabled);
+    return prev_enabled;
+}
 
 #endif /* SRC_INCLUDE_INTERRUPT_H */
