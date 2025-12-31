@@ -14,9 +14,6 @@
 #define PIC2_COMMAND PIC2
 #define PIC2_DATA (PIC2 + 1)
 
-/* End of interrupt command code. */
-#define PIC_EOI 0x20
-
 /* Initialization Control Word (ICW) 1
    https://brokenthorn.com/Resources/OSDevPic.html */
 #define ICW1_ICW4 0x01              /* (1) PIC expects to receive IC4 during initialization */
@@ -24,7 +21,7 @@
                                        ICW3 must be sent to controller */
 #define ICW1_INTERVAL4 0x04         /* (1) CALL address interval is 4, (0) interval is 8 */
 #define ICW1_LEVEL 0x08             /* (1) Level triggered mode, (0) Edge triggered mode */
-#define ICW1_INIT 0x10              /* (1) PIC will be initialized */
+#define ICW1_TAG 0x10               /* (1) PIC will be initialized (distinguishes ICW1 from OCW2/3) */
 
 /* Initialization Control Word (ICW) 4 */
 #define ICW4_8086 0x01              /* (1) 80x86 mode, (0) MCS-80/86 mode */
@@ -35,6 +32,52 @@
                                        of cascaded controllers */
 
 #define CASCADE_IRQ 2               /* IRQ that cascades from Master PIC to Slave PIC */
+
+/* Operation Control Word (OCW) 1
+   A0=1 (Data port)
+   Sets and clears the bits in the IMR (Interrupt Mask Register).
+   If set, the channel is masked, otherwised the channel is enabled. Masking
+   channels causes the interrupt to be ignored. */
+
+/* Operation Control Word (OCW) 2
+   https://pdos.csail.mit.edu/6.828/2012/readings/hardware/8259A.pdf
+
+   Priority levels of the IRQs
+   - Default, IRQ0 has highest priority, IRQ7 is lowest
+   - Rotation, pick an IRQ to have the lowest priority, the next sequential IRQ will have the highest
+     priority.
+   _____________
+   | R  SL  EOI|
+   -------------
+   | 0   0   1 |        - Non specific EOI command, resets the bit in ISR (In Service Register) with highest priority
+   | 0   1   1 |        - Specific EOI command, resets a bit in ISR specified by the bottom 3 bits
+   | 1   0   1 |        - Rotate on non specific EOI command, automatically update priority of completed
+   |           |          interrupt, shifting other priorities correctly
+   | 1   0   0 |        - Set rotate in automatic EOI mode, perform the automatic priority rotation as
+   |           |          described above when in AEOI mode
+   | 0   0   0 |        - Clear rotate in automatic EOI mode
+   | 1   1   1 |        - Rotate on specific EOI command, set priority of an interrupt request
+   |           |          specified by the bottom 3 bits to the lowest priority
+   | 1   1   0 |        - Set priority command, like above but no EOI command
+   | 0   1   0 |        - No operation
+   ------------- */
+#define OCW2_TAG 0x00               /* Identifies this control word is OCW2 */
+#define OCW2_EOI 0x20               /* End of interrupt command code, resets the IS (In Service) bit */
+#define OCW2_SL 0x40                /* SL bit */
+#define OCW2_R 0x80                 /* Priority rotate bit */
+
+/* Operation Control Word (OCW) 3 */
+#define OCW3_TAG 0x08               /* Specific tag bits for OCW 3 (D7=0, D4=0, D3=1) */
+#define OCW3_RIS 0x01               /* Select either: (0) IRR (Interrupt Request Register) or
+                                       (1) ISR (In Service Register) to be read */
+#define OCW3_RR 0x02                /* Read register */
+#define OCW3_P 0x04                 /* Poll command, overrides read register if both are set */
+#define OCW3_SMM 0x20               /* Special mask mode: (0) reset, (1) set */
+#define OCW3_ESMM 0x40              /* Enable updating special mask mode */
+
+/* After a poll command is issued, the next read of the command port will return an output word. */
+#define MODE_POLL_PRIORITY_IRQ 0x07 /* IRQ with the highest priority pending interrupt */
+#define MODE_POLL_INTERRUPT 0x80    /* Set if there is an interrupt pending */
 
 struct GateDescriptor
 {
@@ -97,9 +140,9 @@ static inline void PIC_eoi (uint8_t irq)
 {
     if (irq >= 8)
     {
-        io_outb (PIC2_COMMAND, PIC_EOI);
+        io_outb (PIC2_COMMAND, OCW2_EOI);
     }
-    io_outb (PIC1_COMMAND, PIC_EOI);
+    io_outb (PIC1_COMMAND, OCW2_EOI);
 }
 
 /* Remap the PIC controllers given interrupt vector offsets.
@@ -109,9 +152,9 @@ static inline void PIC_eoi (uint8_t irq)
 static void PIC_remap (uint8_t offset1, uint8_t offset2)
 {
     /* ICW1 begin initialization sequence. */
-    io_outb (PIC1_COMMAND, ICW1_INIT | ICW1_ICW4);
+    io_outb (PIC1_COMMAND, ICW1_TAG | ICW1_ICW4);
     io_wait ();
-    io_outb (PIC2_COMMAND, ICW1_INIT | ICW1_ICW4);
+    io_outb (PIC2_COMMAND, ICW1_TAG | ICW1_ICW4);
 
     /* ICW2 master PIC vector offset. */
     io_wait ();
