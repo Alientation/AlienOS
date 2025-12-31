@@ -9,29 +9,32 @@
 /* IO port addresses for 8259 PIC. */
 #define PIC1 0x20
 #define PIC2 0xA0
-#define PIC1_COMMAND PIC1
-#define PIC1_DATA (PIC1 + 1)
-#define PIC2_COMMAND PIC2
-#define PIC2_DATA (PIC2 + 1)
+#define PIC1_COMMAND PIC1               /* Master PIC command port */
+#define PIC1_DATA (PIC1 + 1)            /* Master PIC data port */
+#define PIC2_COMMAND PIC2               /* Slave PIC command port */
+#define PIC2_DATA (PIC2 + 1)            /* Slave PIC data port */
+
+#define SPURIOUS_MASTER_IRQ 7           /* Spurious IRQ number for master */
+#define SPURIOUS_SLAVE_IRQ 15           /* Spurious IRQ number for slave */
 
 /* Initialization Control Word (ICW) 1
    https://brokenthorn.com/Resources/OSDevPic.html */
-#define ICW1_ICW4 0x01              /* (1) PIC expects to receive IC4 during initialization */
-#define ICW1_SINGLE 0x02            /* (1) Only one PIC in system, (0) PIC is cascaded with slave PICs,
-                                       ICW3 must be sent to controller */
-#define ICW1_INTERVAL4 0x04         /* (1) CALL address interval is 4, (0) interval is 8 */
-#define ICW1_LEVEL 0x08             /* (1) Level triggered mode, (0) Edge triggered mode */
-#define ICW1_TAG 0x10               /* (1) PIC will be initialized (distinguishes ICW1 from OCW2/3) */
+#define ICW1_ICW4 0x01                  /* (1) PIC expects to receive IC4 during initialization */
+#define ICW1_SINGLE 0x02                /* (1) Only one PIC in system, (0) PIC is cascaded with slave PICs,
+                                           ICW3 must be sent to controller */
+#define ICW1_INTERVAL4 0x04             /* (1) CALL address interval is 4, (0) interval is 8 */
+#define ICW1_LEVEL 0x08                 /* (1) Level triggered mode, (0) Edge triggered mode */
+#define ICW1_TAG 0x10                   /* (1) PIC will be initialized (distinguishes ICW1 from OCW2/3) */
 
 /* Initialization Control Word (ICW) 4 */
-#define ICW4_8086 0x01              /* (1) 80x86 mode, (0) MCS-80/86 mode */
-#define ICW4_AUTO 0x02              /* (1) Automatic EOI operation on last interrupt acknowledge pulse */
-#define ICW4_BUF_SLAVE 0x08         /* 2 bits, select buffer slave */
-#define ICW4_BUF_MASTER 0x0C        /* 2 bits, select buffer master */
-#define ICW4_SFNM 0x10              /* Special fully nested mode, used in systems with large amount
-                                       of cascaded controllers */
+#define ICW4_8086 0x01                  /* (1) 80x86 mode, (0) MCS-80/86 mode */
+#define ICW4_AUTO 0x02                  /* (1) Automatic EOI operation on last interrupt acknowledge pulse */
+#define ICW4_BUF_SLAVE 0x08             /* 2 bits, select buffer slave */
+#define ICW4_BUF_MASTER 0x0C            /* 2 bits, select buffer master */
+#define ICW4_SFNM 0x10                  /* Special fully nested mode, used in systems with large amount
+                                           of cascaded controllers */
 
-#define CASCADE_IRQ 2               /* IRQ that cascades from Master PIC to Slave PIC */
+#define CASCADE_IRQ 2                   /* IRQ that cascades from Master PIC to Slave PIC */
 
 /* Operation Control Word (OCW) 1
    A0=1 (Data port)
@@ -40,6 +43,7 @@
    channels causes the interrupt to be ignored. */
 
 /* Operation Control Word (OCW) 2
+   A0=0 (Command port)
    https://pdos.csail.mit.edu/6.828/2012/readings/hardware/8259A.pdf
 
    Priority levels of the IRQs
@@ -61,23 +65,24 @@
    | 1   1   0 |        - Set priority command, like above but no EOI command
    | 0   1   0 |        - No operation
    ------------- */
-#define OCW2_TAG 0x00               /* Identifies this control word is OCW2 */
-#define OCW2_EOI 0x20               /* End of interrupt command code, resets the IS (In Service) bit */
-#define OCW2_SL 0x40                /* SL bit */
-#define OCW2_R 0x80                 /* Priority rotate bit */
+#define OCW2_TAG 0x00                   /* Identifies this control word is OCW2 */
+#define OCW2_EOI (0x20 | OCW2_TAG)      /* End of interrupt command code, resets the IS (In Service) bit */
+#define OCW2_SL (0x40 | OCW2_TAG)       /* SL bit */
+#define OCW2_R (0x80 | OCW2_TAG)        /* Priority rotate bit */
 
-/* Operation Control Word (OCW) 3 */
-#define OCW3_TAG 0x08               /* Specific tag bits for OCW 3 (D7=0, D4=0, D3=1) */
-#define OCW3_RIS 0x01               /* Select either: (0) IRR (Interrupt Request Register) or
-                                       (1) ISR (In Service Register) to be read */
-#define OCW3_RR 0x02                /* Read register */
-#define OCW3_P 0x04                 /* Poll command, overrides read register if both are set */
-#define OCW3_SMM 0x20               /* Special mask mode: (0) reset, (1) set */
-#define OCW3_ESMM 0x40              /* Enable updating special mask mode */
+/* Operation Control Word (OCW) 3
+   A0=0 (Command port) */
+#define OCW3_TAG 0x08                   /* Specific tag bits for OCW 3 (D7=0, D4=0, D3=1) */
+#define OCW3_RIS (0x01 | OCW3_TAG)      /* Select either: (0) IRR (Interrupt Request Register) or
+                                           (1) ISR (In Service Register) to be read */
+#define OCW3_RR (0x02 | OCW3_TAG)       /* Read register */
+#define OCW3_P (0x04 | OCW3_TAG)        /* Poll command, overrides read register if both are set */
+#define OCW3_SMM (0x20 | OCW3_TAG)      /* Special mask mode: (0) reset, (1) set */
+#define OCW3_ESMM (0x40 | OCW3_TAG)     /* Enable updating special mask mode */
 
 /* After a poll command is issued, the next read of the command port will return an output word. */
-#define MODE_POLL_PRIORITY_IRQ 0x07 /* IRQ with the highest priority pending interrupt */
-#define MODE_POLL_INTERRUPT 0x80    /* Set if there is an interrupt pending */
+#define MODE_POLL_PRIORITY_IRQ 0x07     /* IRQ with the highest priority pending interrupt */
+#define MODE_POLL_INTERRUPT 0x80        /* Set if there is an interrupt pending */
 
 struct GateDescriptor
 {
@@ -136,7 +141,7 @@ ISR (SYS, 0x80);
 /* Send the end of interrupt command to PIC chips. If IRQ came from slave PIC, need to send to both
    master and slave.
    https://wiki.osdev.org/8259_PIC#Programming_with_the_8259_PIC */
-static inline void PIC_eoi (uint8_t irq)
+static inline void PIC_eoi (const uint8_t irq)
 {
     if (irq >= 8)
     {
@@ -145,11 +150,53 @@ static inline void PIC_eoi (uint8_t irq)
     io_outb (PIC1_COMMAND, OCW2_EOI);
 }
 
+/* Handle spurious interrupts.
+   Checks if the correponding IRQ is set in the ISR. If not, then we should not set an EOI back to
+   PIC to reset ISR. This only happens for IRQ 7 (master) and IRQ 15 (slave).
+   If slave has a spurious irq, master will not know and so will have IRQ 2 set in it's ISR.
+   So we need to send an EOI to master but not slave.
+   Warning: Will not work proprerly if nested interrupts are allowed (SFNM). */
+static inline bool PIC_check_spurious (const uint8_t irq)
+{
+    if ((irq == SPURIOUS_MASTER_IRQ || irq == SPURIOUS_SLAVE_IRQ) && !(PIC_read_isr () & (1 << irq)))
+    {
+        if (irq == SPURIOUS_SLAVE_IRQ)
+        {
+            io_outb (PIC1_COMMAND, OCW2_EOI);
+        }
+        return true;
+    }
+
+    return false;
+}
+
+/* Read Interrupt Request Register. */
+static inline uint16_t PIC_read_irr (void)
+{
+    /* Send OCW3 to both PIC command ports. */
+    io_outb (PIC1_COMMAND, OCW3_RR);
+    io_outb (PIC2_COMMAND, OCW3_RR);
+
+    /* Read status register. */
+    return (io_inb (PIC1_COMMAND) << 8) | io_inb (PIC2_COMMAND);
+}
+
+/* Read Interrupt Status Register. */
+static inline uint16_t PIC_read_isr (void)
+{
+    /* Send OCW3 to both PIC command ports. */
+    io_outb (PIC1_COMMAND, OCW3_RR | OCW3_RIS);
+    io_outb (PIC2_COMMAND, OCW3_RR | OCW3_RIS);
+
+    /* Read status register. */
+    return (io_inb (PIC1_COMMAND) << 8) | io_inb (PIC2_COMMAND);
+}
+
 /* Remap the PIC controllers given interrupt vector offsets.
    Master vectors go from offset1..offset1+7 and
    slave vectors go from offset2..offset2+7.
    https://brokenthorn.com/Resources/OSDevPic.html */
-static void PIC_remap (uint8_t offset1, uint8_t offset2)
+static void PIC_remap (const uint8_t offset1, const uint8_t offset2)
 {
     /* ICW1 begin initialization sequence. */
     io_outb (PIC1_COMMAND, ICW1_TAG | ICW1_ICW4);
@@ -184,7 +231,7 @@ static void PIC_remap (uint8_t offset1, uint8_t offset2)
 }
 
 /* Set IRQ mask bit which will cause the PIC to ignore the specific interrupt request. */
-static void IRQ_set_mask (uint8_t irqline)
+static void IRQ_set_mask (const uint8_t irqline)
 {
     const uint16_t port = (irqline < 8) ? PIC1_DATA : PIC2_DATA;
     const uint8_t value = io_inb (port) | (1 << (irqline & 0b111));
@@ -192,7 +239,7 @@ static void IRQ_set_mask (uint8_t irqline)
 }
 
 /* Clear IRQ mask bit which will cause the PIC to ignore the specific interrupt request. */
-static void IRQ_clear_mask (uint8_t irqline)
+static void IRQ_clear_mask (const uint8_t irqline)
 {
     const uint16_t port = (irqline < 8) ? PIC1_DATA : PIC2_DATA;
     const uint8_t value = io_inb (port) & ~(1 << (irqline & 0b111));
@@ -217,8 +264,8 @@ void interrupt_handler (struct InterruptFrame * const frame)
 }
 
 /* https://wiki.osdev.org/Interrupt_Descriptor_Table */
-void fill_entry (struct GateDescriptor * const entry, uint32_t offset, uint16_t segment,
-                 enum InterruptType type, enum InterruptPrivilege privilege, bool present)
+void fill_entry (struct GateDescriptor * const entry, const uint32_t offset, const uint16_t segment,
+                 const enum InterruptType type, const enum InterruptPrivilege privilege, const bool present)
 {
     uint32_t d0 = 0;
     uint32_t d1 = 0;
@@ -237,7 +284,7 @@ void fill_entry (struct GateDescriptor * const entry, uint32_t offset, uint16_t 
     entry->d[1] = d1;
 }
 
-void fill_interrupt (struct GateDescriptor * const entry, uint32_t offset)
+void fill_interrupt (struct GateDescriptor * const entry, const uint32_t offset)
 {
     fill_entry (entry, offset, SegmentKernelCode, InterruptType_32bit_Interrupt, InterruptPrivilege_Ring0, true);
 }
