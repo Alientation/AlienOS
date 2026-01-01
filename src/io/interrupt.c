@@ -138,6 +138,28 @@ ISR (VC, 0x1D);
 ISR (SX, 0x1E);
 ISR (SYS, 0x80);
 
+/* Read Interrupt Request Register. */
+static inline uint16_t PIC_read_irr (void)
+{
+    /* Send OCW3 to both PIC command ports. */
+    io_outb (PIC1_COMMAND, OCW3_RR);
+    io_outb (PIC2_COMMAND, OCW3_RR);
+
+    /* Read status register. */
+    return (io_inb (PIC1_COMMAND) << 8) | io_inb (PIC2_COMMAND);
+}
+
+/* Read Interrupt Status Register. */
+static inline uint16_t PIC_read_isr (void)
+{
+    /* Send OCW3 to both PIC command ports. */
+    io_outb (PIC1_COMMAND, OCW3_RR | OCW3_RIS);
+    io_outb (PIC2_COMMAND, OCW3_RR | OCW3_RIS);
+
+    /* Read status register. */
+    return (io_inb (PIC1_COMMAND) << 8) | io_inb (PIC2_COMMAND);
+}
+
 /* Send the end of interrupt command to PIC chips. If IRQ came from slave PIC, need to send to both
    master and slave.
    https://wiki.osdev.org/8259_PIC#Programming_with_the_8259_PIC */
@@ -170,28 +192,6 @@ static inline bool PIC_check_spurious (const uint8_t irq)
     return false;
 }
 
-/* Read Interrupt Request Register. */
-static inline uint16_t PIC_read_irr (void)
-{
-    /* Send OCW3 to both PIC command ports. */
-    io_outb (PIC1_COMMAND, OCW3_RR);
-    io_outb (PIC2_COMMAND, OCW3_RR);
-
-    /* Read status register. */
-    return (io_inb (PIC1_COMMAND) << 8) | io_inb (PIC2_COMMAND);
-}
-
-/* Read Interrupt Status Register. */
-static inline uint16_t PIC_read_isr (void)
-{
-    /* Send OCW3 to both PIC command ports. */
-    io_outb (PIC1_COMMAND, OCW3_RR | OCW3_RIS);
-    io_outb (PIC2_COMMAND, OCW3_RR | OCW3_RIS);
-
-    /* Read status register. */
-    return (io_inb (PIC1_COMMAND) << 8) | io_inb (PIC2_COMMAND);
-}
-
 /* Remap the PIC controllers given interrupt vector offsets.
    Master vectors go from offset1..offset1+7 and
    slave vectors go from offset2..offset2+7.
@@ -213,11 +213,11 @@ static void PIC_remap (const uint8_t offset1, const uint8_t offset2)
 
     /* ICW3 tell master IRQ2 is connected to slave PIC. */
     io_wait ();
-    outb (PIC1_DATA, 1 << CASCADE_IRQ);
+    io_outb (PIC1_DATA, 1 << CASCADE_IRQ);
 
     /* ICW3 tell slave PIC it's cascade identity. */
     io_wait ();
-    outb (PIC2_DATA, CASCADE_IRQ);
+    io_outb (PIC2_DATA, CASCADE_IRQ);
 
     /* ICW4 have PICs use 8086 mode. */
     io_wait ();
@@ -226,8 +226,8 @@ static void PIC_remap (const uint8_t offset1, const uint8_t offset2)
     io_outb (PIC2_DATA, ICW4_8086);
 
     /* Unmask Interrupt Mask Register. */
-    outb (PIC1_DATA, 0);
-    outb (PIC2_DATA, 0);
+    io_outb (PIC1_DATA, 0);
+    io_outb (PIC2_DATA, 0);
 }
 
 /* Set IRQ mask bit which will cause the PIC to ignore the specific interrupt request. */
