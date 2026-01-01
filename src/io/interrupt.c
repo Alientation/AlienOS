@@ -14,6 +14,9 @@
 #define PIC2_COMMAND PIC2               /* Slave PIC command port */
 #define PIC2_DATA (PIC2 + 1)            /* Slave PIC data port */
 
+#define PIC1_OFFSET 0x20
+#define PIC2_OFFSET 0x28
+
 #define SPURIOUS_MASTER_IRQ 7           /* Spurious IRQ number for master */
 #define SPURIOUS_SLAVE_IRQ 15           /* Spurious IRQ number for slave */
 
@@ -360,5 +363,5 @@ void idt_init (void)
     */
 
     idtr_init (sizeof (idt) - 1, (uint32_t) idt);
-    // PIC_remap (off1, off2);
+    PIC_remap (PIC1_OFFSET, PIC2_OFFSET);
 }
