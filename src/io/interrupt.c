@@ -26,9 +26,18 @@
 #define ICW1_LEVEL 0x08                 /* (1) Level triggered mode, (0) Edge triggered mode */
 #define ICW1_TAG 0x10                   /* (1) PIC will be initialized (distinguishes ICW1 from OCW2/3) */
 
+/* Initialization Control Word (ICW) 2
+   Supply the vector offset to convert from the PIC's IRQ number to an interrupt number in the IDT. */
+
+/* Initialization Control Word (ICW) 3
+   For the master PIC, specifies which IRQ is connected to a slave PIC. Each bit corresponds to an IRQ0-7.
+   For the slave PIC, specifies which IRQ the master PIC uses to connect to (bottom 3 bits). Upper bits must be 0. */
+
 /* Initialization Control Word (ICW) 4 */
 #define ICW4_8086 0x01                  /* (1) 80x86 mode, (0) MCS-80/86 mode */
-#define ICW4_AUTO 0x02                  /* (1) Automatic EOI operation on last interrupt acknowledge pulse */
+#define ICW4_AEOI 0x02                  /* (1) Automatic EOI operation on last interrupt acknowledge pulse */
+#define ICW4_MASTER 0x04                /* Only use if BUFFER is set. (1) selects master buffer, (0) select slave buffer */
+#define ICW4_BUFFER 0x08                /* Operate in buffered mode */
 #define ICW4_BUF_SLAVE 0x08             /* 2 bits, select buffer slave */
 #define ICW4_BUF_MASTER 0x0C            /* 2 bits, select buffer master */
 #define ICW4_SFNM 0x10                  /* Special fully nested mode, used in systems with large amount
@@ -67,8 +76,16 @@
    ------------- */
 #define OCW2_TAG 0x00                   /* Identifies this control word is OCW2 */
 #define OCW2_EOI (0x20 | OCW2_TAG)      /* End of interrupt command code, resets the IS (In Service) bit */
-#define OCW2_SL (0x40 | OCW2_TAG)       /* SL bit */
+#define OCW2_SL (0x40 | OCW2_TAG)       /* Select Level (IRQ) bit */
 #define OCW2_R (0x80 | OCW2_TAG)        /* Priority rotate bit */
+#define OCW2_CMD_NONSPECIFIC_EOI (OCW2_EOI)
+#define OCW2_CMD_SPECIFIC_EOI (OCW2_EOI | OCW2_SL)
+#define OCW2_CMD_ROT_NONSPECIFIC_EOI (OCW2_EOI | OCW2_R)
+#define OCW2_CMD_ROT_AEOI_SET (OCW2_R)
+#define OCW2_CMD_ROT_AEOI_CLEAR (OCW2_TAG)
+#define OCW2_CMD_ROT_SPECIFIC_EOI (OCW2_EOI | OCW2_SL | OCW2_R)
+#define OCW2_CMD_SET_PRIORITY (OCW2_SL | OCW2_R)
+#define OCW2_CMD_NOOP (OCW2_SL)
 
 /* Operation Control Word (OCW) 3
    A0=0 (Command port) */
@@ -76,9 +93,17 @@
 #define OCW3_RIS (0x01 | OCW3_TAG)      /* Select either: (0) IRR (Interrupt Request Register) or
                                            (1) ISR (In Service Register) to be read */
 #define OCW3_RR (0x02 | OCW3_TAG)       /* Read register */
+#define OCW3_READ_IRR (OCW3_RR)             /* Read Interrupt Request Register */
+#define OCW3_READ_ISR (OCW3_RIS | OCW3_RR)  /* Read Interrupt Service Register */
+
 #define OCW3_P (0x04 | OCW3_TAG)        /* Poll command, overrides read register if both are set */
-#define OCW3_SMM (0x20 | OCW3_TAG)      /* Special mask mode: (0) reset, (1) set */
+#define OCW3_SMM (0x20 | OCW3_TAG)      /* Special mask mode: (0) reset, (1) set
+                                           Used in fully nested mode. Allows interrupts with lower
+                                           or same priority to be sent to CPU if not masked out
+                                           by the IMR. If not set, then only interrupts with high priority */
 #define OCW3_ESMM (0x40 | OCW3_TAG)     /* Enable updating special mask mode */
+#define OCW3_CLEAR_SMM (OCW3_ESMM)      /* Clear special mask mode */
+#define OCW3_SET_SMM (OCW3_ESMM | OCW3_SMM) /* Set special mask mode */
 
 /* After a poll command is issued, the next read of the command port will return an output word. */
 #define MODE_POLL_PRIORITY_IRQ 0x07     /* IRQ with the highest priority pending interrupt */
@@ -142,8 +167,8 @@ ISR (SYS, 0x80);
 static inline uint16_t PIC_read_irr (void)
 {
     /* Send OCW3 to both PIC command ports. */
-    io_outb (PIC1_COMMAND, OCW3_RR);
-    io_outb (PIC2_COMMAND, OCW3_RR);
+    io_outb (PIC1_COMMAND, OCW3_READ_IRR);
+    io_outb (PIC2_COMMAND, OCW3_READ_IRR);
 
     /* Read status register. */
     return (io_inb (PIC1_COMMAND) << 8) | io_inb (PIC2_COMMAND);
@@ -153,8 +178,8 @@ static inline uint16_t PIC_read_irr (void)
 static inline uint16_t PIC_read_isr (void)
 {
     /* Send OCW3 to both PIC command ports. */
-    io_outb (PIC1_COMMAND, OCW3_RR | OCW3_RIS);
-    io_outb (PIC2_COMMAND, OCW3_RR | OCW3_RIS);
+    io_outb (PIC1_COMMAND, OCW3_RR | OCW3_READ_ISR);
+    io_outb (PIC2_COMMAND, OCW3_RR | OCW3_READ_ISR);
 
     /* Read status register. */
     return (io_inb (PIC1_COMMAND) << 8) | io_inb (PIC2_COMMAND);
@@ -332,7 +357,8 @@ void idt_init (void)
     - Write a couple of ISR handlers (see Interrupt Service Routines) for both IRQs and exceptions
     - Put the addresses of the ISR handlers in the appropriate descriptors (in Interrupt Descriptor Table)
     - Enable all supported interrupts in the IRQ mask (of the PIC)
-
     */
+
     idtr_init (sizeof (idt) - 1, (uint32_t) idt);
+    // PIC_remap (off1, off2);
 }
