@@ -290,9 +290,9 @@ static void PIC_remap (const uint8_t offset1, const uint8_t offset2)
     io_wait ();
     io_outb (PIC2_DATA, ICW4_8086);
 
-    /* Unmask Interrupt Mask Register. */
-    io_outb (PIC1_DATA, 0);
-    io_outb (PIC2_DATA, 0);
+    /* Unmask Interrupt Mask Register for timer (IRQ0) and cascade (IRQ2). */
+    io_outb (PIC1_DATA, 0b11111010);
+    io_outb (PIC2_DATA, 0b11111111);
 }
 
 /* Set IRQ mask bit which will cause the PIC to ignore the specific interrupt request. */
@@ -386,6 +386,10 @@ void fill_interrupt (struct GateDescriptor * const entry, const uint32_t offset)
 
 void idt_init (void)
 {
+    static bool init = false;
+    kernel_assert (!init, "Already initialized IDT");
+    init = true;
+
     /* Disable hardware interrupts. */
     asm volatile ("cli");
 
@@ -451,4 +455,14 @@ void idt_init (void)
 
     /* Re-enable hardware interrupts. */
     asm volatile ("sti");
+
+    io_serial_printf (COMPort_1, "Initialized IDT\n");
+
+    // Command: Channel 0, access mode LO/HI, Mode 3 (square wave), binary
+    io_outb(0x43, 0x36);
+
+    // Set frequency to ~100Hz (1193182 / 100 = 11931)
+    uint16_t divisor = 11931;
+    io_outb(0x40, (uint8_t)(divisor & 0xFF));
+    io_outb(0x40, (uint8_t)((divisor >> 8) & 0xFF));
 }

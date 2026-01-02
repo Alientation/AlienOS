@@ -1,5 +1,6 @@
 #include "alienos/mem/mem.h"
 #include "alienos/kernel/kernel.h"
+#include "alienos/io/io.h"
 
 /* TODO: Should use struct with 2 uint32_t instead since we are targetting a 32 bit architecture. */
 uint64_t gdt[5];
@@ -126,6 +127,8 @@ void gdt_init (void)
 
     /* GDTR size is one less than actual size. */
     gdtr_init (sizeof (gdt) - 1, (uint32_t) gdt);
+
+    io_serial_printf (COMPort_1, "Initialized GDT\n");
 }
 
 struct SegmentSelector segselector_init (enum Segment segment, enum TableIndex table_index,

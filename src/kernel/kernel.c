@@ -91,6 +91,14 @@ void kernel_main(const unsigned int magic, const multiboot_info_t * const mbinfo
 #ifdef ALIENOS_TEST
 	unit_tests ();
 #endif
+
+	while (true)
+	{
+		for (size_t i = 0; i < 1000000000ULL; i++)
+		{
+			continue;
+		}
+	}
 }
 
 static void internal_kernel_panic (const char * const format, va_list params)

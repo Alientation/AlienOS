@@ -47,6 +47,8 @@ void io_serial_init (const enum COMPort port, const uint16_t divisor, const enum
 
     /* Set interrupt trigger level at 14 bytes and clear both transmit/receive FIFO buffers. */
     internal_io_outb (port, WRITE_FIFO_CONTROL, 0b11000111);
+
+    io_serial_printf (port, "Initialized COM%u port\n", (uint32_t) port);
 }
 
 bool io_serial_data_ready (const enum COMPort port)
