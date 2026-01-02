@@ -17,9 +17,6 @@
 #define PIC1_OFFSET 0x20
 #define PIC2_OFFSET 0x28
 
-#define SPURIOUS_MASTER_IRQ 7           /* Spurious IRQ number for master */
-#define SPURIOUS_SLAVE_IRQ 15           /* Spurious IRQ number for slave */
-
 /* Initialization Control Word (ICW) 1
    https://brokenthorn.com/Resources/OSDevPic.html */
 #define ICW1_ICW4 0x01                  /* (1) PIC expects to receive IC4 during initialization */
@@ -46,8 +43,22 @@
 #define ICW4_SFNM 0x10                  /* Special fully nested mode, used in systems with large amount
                                            of cascaded controllers */
 
-#define IRQ_PIT                         /* Programmable Interrupt Timer */
+/* IRQ numbers (0-15) for hardware interrupts. */
+#define IRQ_PIT 0                       /* Programmable Interrupt Timer */
+#define IRQ_KEYBOARD 1                  /* Keyboard */
 #define IRQ_CASCADE 2                   /* Cascade signals from Slave to Master PIC */
+#define IRQ_COM2 3                      /* COM2 port (if enabled) */
+#define IRQ_COM1 4                      /* COM1 port (if enabled) */
+#define IRQ_LPT2 5                      /* LPT2 port (if enabled) */
+#define IRQ_FLOPPY 6                    /* Floppy Disk */
+#define IRQ_LPT1 7                      /* LPT1 */
+#define IRQ_SPURIOUS_MASTER 7           /* Spurious interrupt from master */
+#define IRQ_CMOS_CLOCK 8                /* CMOS real time clock (if enabled) */
+#define IRQ_PS2_MOUSE 12                /* PS2 Mouse */
+#define IRQ_FPU 13                      /* FPU, Coprocessor, or inter processor */
+#define IRQ_ATA_HARD_DISK_PRIMARY 14    /* Primary ATA hard disk */
+#define IRQ_ATA_HARD_DISK_SECONDARY 15  /* Secondary ATA hard disk */
+#define IRQ_SPURIOUS_SLAVE 15           /* Spurious interrupt from slave */
 
 /* Operation Control Word (OCW) 1
    A0=1 (Data port)
@@ -209,9 +220,9 @@ static inline void PIC_eoi (const uint8_t irq)
    Warning: Will not work proprerly if nested interrupts are allowed (SFNM). */
 static inline bool PIC_check_spurious (const uint8_t irq)
 {
-    if ((irq == SPURIOUS_MASTER_IRQ || irq == SPURIOUS_SLAVE_IRQ) && !(PIC_read_isr () & (1 << irq)))
+    if ((irq == IRQ_SPURIOUS_MASTER || irq == IRQ_SPURIOUS_SLAVE) && !(PIC_read_isr () & (1 << irq)))
     {
-        if (irq == SPURIOUS_SLAVE_IRQ)
+        if (irq == IRQ_SPURIOUS_SLAVE)
         {
             io_outb (PIC1_COMMAND, OCW2_EOI);
         }
