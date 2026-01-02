@@ -148,9 +148,13 @@ struct InterruptFrame
     uint32_t oldesp, oldss;
 };
 
+/* Initialize the IDTR register, point to the IDT table. */
 extern void idtr_init (uint16_t size, uint32_t offset);
 
+/* Interrupt function handlers defined in interruptasm.s, redirects to centralized interrupt handler. */
 #define ISR(mnemonic, intno) const uint8_t INT_##mnemonic = intno; extern void isr_##mnemonic (void)
+
+/* Reserved Intel exceptions. */
 ISR (ERR, 0xFF);
 ISR (DE, 0x00);
 ISR (DB, 0x01);
@@ -176,7 +180,27 @@ ISR (CP, 0x15);
 ISR (HV, 0x1C);
 ISR (VC, 0x1D);
 ISR (SX, 0x1E);
+
+/* Software interrupt. */
 ISR (SYS, 0x80);
+
+/* PIC interrupts (IRQ0-15). */
+ISR (IRQ0, 0x20);
+ISR (IRQ1, 0x21);
+ISR (IRQ2, 0x22);
+ISR (IRQ3, 0x23);
+ISR (IRQ4, 0x24);
+ISR (IRQ5, 0x25);
+ISR (IRQ6, 0x26);
+ISR (IRQ7, 0x27);
+ISR (IRQ8, 0x28);
+ISR (IRQ9, 0x29);
+ISR (IRQ10, 0x2A);
+ISR (IRQ11, 0x2B);
+ISR (IRQ12, 0x2C);
+ISR (IRQ13, 0x2D);
+ISR (IRQ14, 0x2E);
+ISR (IRQ15, 0x2F);
 
 /* Read Interrupt Request Register. */
 static inline uint16_t PIC_read_irr (void)

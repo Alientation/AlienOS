@@ -30,15 +30,15 @@ idtr_init:
 .macro isrer mnemonic, intnum
 .global isr\mnemonic
 isr\mnemonic:
-    pushl $\intnum
+    pushl $\intnum              /* Push interrupt number */
     jmp isr_wrapper
 .endm
 
 .macro isr mnemonic, intnum
 .global isr\mnemonic
 isr\mnemonic:
-    pushl $0x0
-    pushl $\intnum
+    pushl $0x0                  /* Push a fake error code onto stack */
+    pushl $\intnum              /* Push interrupt number */
     jmp isr_wrapper
 .endm
 
@@ -68,6 +68,24 @@ isr _HV, 0x1C
 isrer _VC, 0x1D
 isrer _SX, 0x1E
 isr _SYS, 0x80
+
+/* Interrupts from PIC (IRQ0-15) */
+isr _IRQ0, 0x20
+isr _IRQ1, 0x21
+isr _IRQ2, 0x22
+isr _IRQ3, 0x23
+isr _IRQ4, 0x24
+isr _IRQ5, 0x25
+isr _IRQ6, 0x26
+isr _IRQ7, 0x27
+isr _IRQ8, 0x28
+isr _IRQ9, 0x29
+isr _IRQ10, 0x2A
+isr _IRQ11, 0x2B
+isr _IRQ12, 0x2C
+isr _IRQ13, 0x2D
+isr _IRQ14, 0x2E
+isr _IRQ15, 0x2F
 
 
 /* Wrapper for calling interrupt service routines. Interrupt number and error code (if any) must be
