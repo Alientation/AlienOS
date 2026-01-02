@@ -127,3 +127,12 @@ void gdt_init (void)
     /* GDTR size is one less than actual size. */
     gdtr_init (sizeof (gdt) - 1, (uint32_t) gdt);
 }
+
+struct SegmentSelector segselector_init (enum Segment segment, enum TableIndex table_index,
+                                         enum SegmentPrivilege privilege)
+{
+    return (struct SegmentSelector)
+    {
+        .data = (((uint16_t) privilege) & 0b11) | ((((uint16_t) table_index) & 0b1) << 2) | (((uint16_t) segment) << 3)
+    };
+}

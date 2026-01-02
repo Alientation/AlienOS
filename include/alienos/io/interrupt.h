@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 
+/* https://wiki.osdev.org/Interrupt_Descriptor_Table */
 enum InterruptPrivilege
 {
     InterruptPrivilege_Ring0 = 0,           /* Highest privilege (Kernel) */

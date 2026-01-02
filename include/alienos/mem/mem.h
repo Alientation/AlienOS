@@ -4,6 +4,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+enum TableIndex
+{
+    TableIndex_GDT = 0,
+    TableIndex_LDT = 1,
+};
+
 enum Segment
 {
     SegmentNull = 0,
@@ -84,6 +90,13 @@ struct SegmentDescriptor
     uint8_t flags;
 };
 
+/* https://wiki.osdev.org/Segment_Selector */
+struct SegmentSelector
+{
+    uint16_t data;          /* Low 3 bits are used for flags, upper bits are the address of segment
+                               in GDT or LDT, which is always 8 byte aligned */
+};
+
 /* Initialize the GDT. */
 void gdt_init (void);
 
@@ -97,6 +110,9 @@ uint8_t gdt_init_flags (const enum SegmentGranularityFlag g, const enum SegmentS
 
 /* Construct the access byte for system segments. */
 uint8_t gdt_initsyseg_access (const bool present, const enum SegmentPrivilege dpl,
-                                     const enum SystemSegmentType type);
+                              const enum SystemSegmentType type);
+
+struct SegmentSelector segselector_init (enum Segment segment, enum TableIndex table_index,
+                                         enum SegmentPrivilege privilege);
 
 #endif /* INCLUDE_MEM_MEM_H */

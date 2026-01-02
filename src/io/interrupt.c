@@ -246,6 +246,7 @@ static inline bool PIC_check_spurious (const uint8_t irq)
 {
     if ((irq == IRQ_SPURIOUS_MASTER || irq == IRQ_SPURIOUS_SLAVE) && !(PIC_read_isr () & (1 << irq)))
     {
+        io_serial_printf (COMPort_1, "Spurious IRQ %u\n", irq);
         if (irq == IRQ_SPURIOUS_SLAVE)
         {
             io_outb (PIC1_COMMAND, OCW2_EOI);
@@ -321,22 +322,51 @@ void interrupt_handler (struct InterruptFrame * const frame)
         case INT_ERR:
             kernel_panic ("INT_ERR");
             break;
+
+        case INT_IRQ0:
+        case INT_IRQ1:
+        case INT_IRQ2:
+        case INT_IRQ3:
+        case INT_IRQ4:
+        case INT_IRQ5:
+        case INT_IRQ6:
+        case INT_IRQ7:
+        case INT_IRQ8:
+        case INT_IRQ9:
+        case INT_IRQ10:
+        case INT_IRQ11:
+        case INT_IRQ12:
+        case INT_IRQ13:
+        case INT_IRQ14:
+        case INT_IRQ15:
+            break;
+
         default:
             kernel_panic ("Invalid Interrupt Number");
             break;
     }
+
+    if (frame->intno >= PIC1_OFFSET && frame->intno <= PIC2_OFFSET + 7)
+    {
+        const uint8_t irq = frame->intno - PIC1_OFFSET;
+        if (!PIC_check_spurious (irq))
+        {
+            PIC_eoi (irq);
+        }
+    }
 }
 
 /* https://wiki.osdev.org/Interrupt_Descriptor_Table */
-void fill_entry (struct GateDescriptor * const entry, const uint32_t offset, const uint16_t segment,
-                 const enum InterruptType type, const enum InterruptPrivilege privilege, const bool present)
+static void fill_entry (struct GateDescriptor * const entry, const uint32_t offset,
+                        const struct SegmentSelector segment_selector, const enum InterruptType type,
+                        const enum InterruptPrivilege privilege, const bool present)
 {
     uint32_t d0 = 0;
     uint32_t d1 = 0;
 
     /* Least significant bytes, bits 0-31. */
     d0 |= offset & 0xFFFF;
-    d0 |= ((uint32_t) segment) << 16;
+    d0 |= segment_selector.data << 16;
 
     /* Most significant bytes, bits 32-63. */
     d1 |= ((uint32_t) type & 0b1111) << 8;
@@ -350,11 +380,16 @@ void fill_entry (struct GateDescriptor * const entry, const uint32_t offset, con
 
 void fill_interrupt (struct GateDescriptor * const entry, const uint32_t offset)
 {
-    fill_entry (entry, offset, SegmentKernelCode, InterruptType_32bit_Interrupt, InterruptPrivilege_Ring0, true);
+    fill_entry (entry, offset, segselector_init (SegmentKernelCode, TableIndex_GDT, SegmentPrivilege_Ring0),
+                InterruptType_32bit_Interrupt, InterruptPrivilege_Ring0, true);
 }
 
 void idt_init (void)
 {
+    /* Disable hardware interrupts. */
+    asm volatile ("cli");
+
+    /* Fill IDT entries. */
     for (size_t i = 0; i < IDT_ENTRIES; i++)
     {
         fill_interrupt (&idt[i], (uintptr_t) isr_ERR);
@@ -385,10 +420,35 @@ void idt_init (void)
     fill_interrupt (&idt[0x1C], (uintptr_t) isr_HV);
     fill_interrupt (&idt[0x1D], (uintptr_t) isr_VC);
     fill_interrupt (&idt[0x1E], (uintptr_t) isr_SX);
+    fill_interrupt (&idt[0x20], (uintptr_t) isr_IRQ0);
+    fill_interrupt (&idt[0x21], (uintptr_t) isr_IRQ1);
+    fill_interrupt (&idt[0x22], (uintptr_t) isr_IRQ2);
+    fill_interrupt (&idt[0x23], (uintptr_t) isr_IRQ3);
+    fill_interrupt (&idt[0x24], (uintptr_t) isr_IRQ4);
+    fill_interrupt (&idt[0x25], (uintptr_t) isr_IRQ5);
+    fill_interrupt (&idt[0x26], (uintptr_t) isr_IRQ6);
+    fill_interrupt (&idt[0x27], (uintptr_t) isr_IRQ7);
+    fill_interrupt (&idt[0x28], (uintptr_t) isr_IRQ8);
+    fill_interrupt (&idt[0x29], (uintptr_t) isr_IRQ9);
+    fill_interrupt (&idt[0x2A], (uintptr_t) isr_IRQ10);
+    fill_interrupt (&idt[0x2B], (uintptr_t) isr_IRQ11);
+    fill_interrupt (&idt[0x2C], (uintptr_t) isr_IRQ12);
+    fill_interrupt (&idt[0x2D], (uintptr_t) isr_IRQ13);
+    fill_interrupt (&idt[0x2E], (uintptr_t) isr_IRQ14);
+    fill_interrupt (&idt[0x2F], (uintptr_t) isr_IRQ15);
 
-    fill_entry (&idt[0x80], (uintptr_t) isr_SYS, SegmentKernelCode, InterruptType_32bit_Interrupt,
-                InterruptPrivilege_Ring3, true);
+    fill_entry (&idt[0x80], (uintptr_t) isr_SYS,
+                segselector_init (SegmentKernelCode, TableIndex_GDT, SegmentPrivilege_Ring0),
+                InterruptType_32bit_Interrupt, InterruptPrivilege_Ring3, true);
 
+    /* Load IDTR register. */
     idtr_init (sizeof (idt) - 1, (uint32_t) idt);
+
+    /* Remap PIC IRQs into the IDT. */
     PIC_remap (PIC1_OFFSET, PIC2_OFFSET);
+
+    /* TODO: mask all IRQs initially, reenable once each corresponding driver is initialized. */
+
+    /* Re-enable hardware interrupts. */
+    asm volatile ("sti");
 }
