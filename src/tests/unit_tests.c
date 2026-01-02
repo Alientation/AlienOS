@@ -1,5 +1,5 @@
-#include "unit_tests.h"
-#include "io.h"
+#include "alienos/tests/unit_tests.h"
+#include "alienos/io/io.h"
 
 void unit_tests (void)
 {

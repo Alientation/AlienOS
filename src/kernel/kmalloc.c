@@ -1,6 +1,6 @@
-#include "kmalloc.h"
-#include "kernel.h"
-#include "io.h"
+#include "alienos/mem/kmalloc.h"
+#include "alienos/kernel/kernel.h"
+#include "alienos/io/io.h"
 
 #include <stdbool.h>
 

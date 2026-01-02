@@ -1,5 +1,5 @@
-#include "terminal.h"
-#include "io.h"
+#include "alienos/io/terminal.h"
+#include "alienos/io/io.h"
 
 #include <string.h>
 #include <stdarg.h>

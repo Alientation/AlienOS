@@ -1,11 +1,11 @@
-#include "kernel.h"
-#include "terminal.h"
-#include "io.h"
-#include "interrupt.h"
-#include "mem.h"
-#include "multiboot.h"
-#include "kmalloc.h"
-#include "unit_tests.h"
+#include "alienos/kernel/kernel.h"
+#include "alienos/io/terminal.h"
+#include "alienos/io/io.h"
+#include "alienos/io/interrupt.h"
+#include "alienos/mem/mem.h"
+#include "alienos/kernel/multiboot.h"
+#include "alienos/mem/kmalloc.h"
+#include "alienos/tests/unit_tests.h"
 
 #include <stdarg.h>
 #include <stddef.h>

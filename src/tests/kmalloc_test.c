@@ -1,7 +1,7 @@
-#include "unit_tests.h"
-#include "kmalloc.h"
-#include "kernel.h"
-#include "io.h"
+#include "alienos/tests/unit_tests.h"
+#include "alienos/mem/kmalloc.h"
+#include "alienos/kernel/kernel.h"
+#include "alienos/io/io.h"
 
 #include <string.h>
 

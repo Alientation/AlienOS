@@ -4,7 +4,7 @@ AR = i686-elf-ar
 AS = i686-elf-as
 
 # Include paths to kernel and c library headers
-INCLUDES = -Isrc/include -Ilibc/include
+INCLUDES = -Iinclude -Ilibc/include
 
 # Flags
 CFLAGS = -std=gnu99 -ffreestanding -O2 -Wall -Wextra $(INCLUDES)

@@ -1,5 +1,5 @@
-#include "mem.h"
-#include "kernel.h"
+#include "alienos/mem/mem.h"
+#include "alienos/kernel/kernel.h"
 
 /* TODO: Should use struct with 2 uint32_t instead since we are targetting a 32 bit architecture. */
 uint64_t gdt[5];

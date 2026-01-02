@@ -1,7 +1,7 @@
-#include "interrupt.h"
-#include "mem.h"
-#include "io.h"
-#include "kernel.h"
+#include "alienos/io/interrupt.h"
+#include "alienos/io/io.h"
+#include "alienos/mem/mem.h"
+#include "alienos/kernel/kernel.h"
 
 #include "stdbool.h"
 #include "stdint.h"
@@ -46,7 +46,8 @@
 #define ICW4_SFNM 0x10                  /* Special fully nested mode, used in systems with large amount
                                            of cascaded controllers */
 
-#define CASCADE_IRQ 2                   /* IRQ that cascades from Master PIC to Slave PIC */
+#define IRQ_PIT                         /* Programmable Interrupt Timer */
+#define IRQ_CASCADE 2                   /* Cascade signals from Slave to Master PIC */
 
 /* Operation Control Word (OCW) 1
    A0=1 (Data port)
@@ -241,11 +242,11 @@ static void PIC_remap (const uint8_t offset1, const uint8_t offset2)
 
     /* ICW3 tell master IRQ2 is connected to slave PIC. */
     io_wait ();
-    io_outb (PIC1_DATA, 1 << CASCADE_IRQ);
+    io_outb (PIC1_DATA, 1 << IRQ_CASCADE);
 
     /* ICW3 tell slave PIC it's cascade identity. */
     io_wait ();
-    io_outb (PIC2_DATA, CASCADE_IRQ);
+    io_outb (PIC2_DATA, IRQ_CASCADE);
 
     /* ICW4 have PICs use 8086 mode. */
     io_wait ();
@@ -324,6 +325,7 @@ void idt_init (void)
         fill_interrupt (&idt[i], (uintptr_t) isr_ERR);
     }
 
+    /* https://en.wikipedia.org/wiki/Template:X86_protected_mode_interrupts */
     fill_interrupt (&idt[0x00], (uintptr_t) isr_DE);
     fill_interrupt (&idt[0x01], (uintptr_t) isr_DB);
     fill_interrupt (&idt[0x02], (uintptr_t) isr_NMI);
@@ -351,16 +353,6 @@ void idt_init (void)
 
     fill_entry (&idt[0x80], (uintptr_t) isr_SYS, SegmentKernelCode, InterruptType_32bit_Interrupt,
                 InterruptPrivilege_Ring3, true);
-
-    /* TODO: https://wiki.osdev.org/Interrupts
-
-    X Make space for the interrupt descriptor table
-    X Tell the CPU where that space is (see GDT Tutorial: lidt works the very same way as lgdt)
-    - Tell the PIC that you no longer want to use the BIOS defaults (see Programming the PIC chips)
-    - Write a couple of ISR handlers (see Interrupt Service Routines) for both IRQs and exceptions
-    - Put the addresses of the ISR handlers in the appropriate descriptors (in Interrupt Descriptor Table)
-    - Enable all supported interrupts in the IRQ mask (of the PIC)
-    */
 
     idtr_init (sizeof (idt) - 1, (uint32_t) idt);
     PIC_remap (PIC1_OFFSET, PIC2_OFFSET);
