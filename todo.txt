@@ -5,7 +5,9 @@
     [ ] Serial IO, ensure output is sent out correctly
 [ ] Terminal scrolling
     - With dynamic memory, should be easy
-[ ] Interrupt Descriptor Tables
+[x] Interrupt Descriptor Tables
+[ ] Interrupt handling
+    [ ] Sleep function
 [ ] Threads
     [ ] Scheduler
     [ ] Synchronization
