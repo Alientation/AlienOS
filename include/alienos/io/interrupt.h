@@ -5,26 +5,31 @@
 
 #include <stdbool.h>
 
-/* https://wiki.osdev.org/Interrupt_Descriptor_Table */
-enum InterruptPrivilege
-{
-    InterruptPrivilege_Ring0 = 0,           /* Highest privilege (Kernel) */
-    InterruptPrivilege_Ring1 = 1,
-    InterruptPrivilege_Ring2 = 2,
-    InterruptPrivilege_Ring3 = 3,           /* Lowest privilege (User) */
-};
-
-enum InterruptType
-{
-    InterruptType_Task = 0x5,
-    InterruptType_16bit_Interrupt = 0x6,
-    InterruptType_16bit_Trap = 0x7,
-    InterruptType_32bit_Interrupt = 0xE,
-    InterruptType_32bit_Trap = 0xF,
-};
+/* IRQ numbers (0-15) for hardware interrupts. */
+#define IRQ_PIT 0                       /* Programmable Interrupt Timer */
+#define IRQ_KEYBOARD 1                  /* Keyboard */
+#define IRQ_CASCADE 2                   /* Cascade signals from Slave to Master PIC */
+#define IRQ_COM2 3                      /* COM2 port (if enabled) */
+#define IRQ_COM1 4                      /* COM1 port (if enabled) */
+#define IRQ_LPT2 5                      /* LPT2 port (if enabled) */
+#define IRQ_FLOPPY 6                    /* Floppy Disk */
+#define IRQ_LPT1 7                      /* LPT1 */
+#define IRQ_SPURIOUS_MASTER 7           /* Spurious interrupt from master */
+#define IRQ_CMOS_CLOCK 8                /* CMOS real time clock (if enabled) */
+#define IRQ_PS2_MOUSE 12                /* PS2 Mouse */
+#define IRQ_FPU 13                      /* FPU, Coprocessor, or inter processor */
+#define IRQ_ATA_HARD_DISK_PRIMARY 14    /* Primary ATA hard disk */
+#define IRQ_ATA_HARD_DISK_SECONDARY 15  /* Secondary ATA hard disk */
+#define IRQ_SPURIOUS_SLAVE 15           /* Spurious interrupt from slave */
 
 /* Initializes the Interrupt Descriptor Table. */
 void idt_init (void);
+
+/* Set IRQ mask bit which will cause the PIC to ignore the specific interrupt request. */
+void irq_set_mask (const uint8_t irqline);
+
+/* Clear IRQ mask bit which will cause the PIC to ignore the specific interrupt request. */
+void irq_clear_mask (const uint8_t irqline);
 
 /* Returns if interrupts are enabled. */
 static inline bool interrupt_is_enabled (void)
@@ -32,11 +37,32 @@ static inline bool interrupt_is_enabled (void)
     return eflags_checkflag (EFLAGS_IF);
 }
 
-/* Enables/disables interrupts and returns the previous interrupt enable state to allow for restoring. */
-static inline bool interrupt_set_enabled (bool enabled)
+/* Restore interrupt enable value. */
+static inline void interrupt_restore (bool enabled)
+{
+    if (enabled)
+    {
+        asm volatile ("sti");
+    }
+    else
+    {
+        asm volatile ("cli");
+    }
+}
+
+/* Enables interrupts, returning the previous interrupt enable state. */
+static inline bool interrupt_enable (void)
 {
     const bool prev_enabled = interrupt_is_enabled ();
-    eflags_setbit (EFLAGS_IF_BIT, enabled);
+    asm volatile ("sti");
+    return prev_enabled;
+}
+
+/* Disables interrupts, returning the previous interrupt enable state. */
+static inline bool interrupt_disable (void)
+{
+    const bool prev_enabled = interrupt_is_enabled ();
+    asm volatile ("cli");
     return prev_enabled;
 }
 

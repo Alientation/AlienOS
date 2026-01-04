@@ -2,10 +2,11 @@
 #include "alienos/io/terminal.h"
 #include "alienos/io/io.h"
 #include "alienos/io/interrupt.h"
-#include "alienos/mem/mem.h"
+#include "alienos/mem/gdt.h"
 #include "alienos/kernel/multiboot.h"
 #include "alienos/mem/kmalloc.h"
 #include "alienos/tests/unit_tests.h"
+#include "alienos/io/timer.h"
 
 #include <stdarg.h>
 #include <stddef.h>
@@ -84,9 +85,16 @@ void kernel_main(const unsigned int magic, const multiboot_info_t * const mbinfo
 	/* Initialize the basic VGA terminal. */
 	terminal_init();
 
+	/* Set up repeating timer interrupts. */
+	timer_init ();
+
 	/* ====== INITIALIZATION DONE ====== */
+	interrupt_enable ();
 	io_serial_printf (COMPort_1, "Kernel Initialize Completed\n");
 	terminal_printf("Welcome to AlienOS\n");
+
+	kernel_assert (interrupt_disable (), "Expect interrupts to have been enabled");
+	kernel_assert (!interrupt_enable (), "Expect interrupts to have been disabled");
 
 #ifdef ALIENOS_TEST
 	unit_tests ();
@@ -117,7 +125,7 @@ void kernel_panic (const char * const format, ...)
 	va_end (params);
 }
 
-void kernel_assert (bool cond, const char *format, ...)
+void kernel_assert (const bool cond, const char * const format, ...)
 {
 	if (!cond)
 	{
@@ -126,4 +134,9 @@ void kernel_assert (bool cond, const char *format, ...)
 		internal_kernel_panic (format, params);
 		va_end (params);
 	}
+}
+
+void kernel_halt (void)
+{
+	asm volatile ("hlt");
 }

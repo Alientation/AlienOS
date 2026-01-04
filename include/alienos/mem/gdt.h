@@ -1,5 +1,5 @@
-#ifndef INCLUDE_MEM_MEM_H
-#define INCLUDE_MEM_MEM_H
+#ifndef INCLUDE_MEM_GDT_H
+#define INCLUDE_MEM_GDT_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -100,19 +100,15 @@ struct SegmentSelector
 /* Initialize the GDT. */
 void gdt_init (void);
 
-/* Construct the access byte for code/data segments. */
-uint8_t gdt_initseg_access (const bool present, const enum SegmentPrivilege dpl,
-                            const bool executable, const enum SegmentDC dc,
-                            const enum SegmentRW rw, const bool accessed);
+/* Initialize a segment selector. Used in IDT. */
+static struct SegmentSelector
+segselector_init (const enum Segment segment, const enum TableIndex table_index,
+                  const enum SegmentPrivilege privilege)
+{
+    return (struct SegmentSelector)
+    {
+        .data = (((uint16_t) privilege) & 0b11) | ((((uint16_t) table_index) & 0b1) << 2) | (((uint16_t) segment) << 3)
+    };
+}
 
-/* Construct flags for code/data/system segments. */
-uint8_t gdt_init_flags (const enum SegmentGranularityFlag g, const enum SegmentSizeFlag size);
-
-/* Construct the access byte for system segments. */
-uint8_t gdt_initsyseg_access (const bool present, const enum SegmentPrivilege dpl,
-                              const enum SystemSegmentType type);
-
-struct SegmentSelector segselector_init (enum Segment segment, enum TableIndex table_index,
-                                         enum SegmentPrivilege privilege);
-
-#endif /* INCLUDE_MEM_MEM_H */
+#endif /* INCLUDE_MEM_GDT_H */

@@ -1,14 +1,16 @@
-#include "alienos/mem/mem.h"
+#include "alienos/mem/gdt.h"
 #include "alienos/kernel/kernel.h"
 #include "alienos/io/io.h"
 
 /* TODO: Should use struct with 2 uint32_t instead since we are targetting a 32 bit architecture. */
 uint64_t gdt[5];
-extern void gdtr_init (uint16_t size, uint32_t offset);
 
-uint8_t gdt_initseg_access (const bool present, const enum SegmentPrivilege dpl,
-                            const bool executable, const enum SegmentDC dc,
-                            const enum SegmentRW rw, const bool accessed)
+extern void
+gdtr_init (uint16_t size, uint32_t offset);
+
+static uint8_t
+gdt_initseg_access (const bool present, const enum SegmentPrivilege dpl, const bool executable,
+                    const enum SegmentDC dc, const enum SegmentRW rw, const bool accessed)
 {
     uint8_t access_byte = 0;
     access_byte |= ((uint8_t) present) << 7;
@@ -21,7 +23,8 @@ uint8_t gdt_initseg_access (const bool present, const enum SegmentPrivilege dpl,
     return access_byte;
 }
 
-uint8_t gdt_init_flags (const enum SegmentGranularityFlag g, const enum SegmentSizeFlag size)
+static uint8_t
+gdt_init_flags (const enum SegmentGranularityFlag g, const enum SegmentSizeFlag size)
 {
     bool db;
     bool l;
@@ -43,8 +46,9 @@ uint8_t gdt_init_flags (const enum SegmentGranularityFlag g, const enum SegmentS
     return flags;
 }
 
-uint8_t gdt_initsyseg_access (const bool present, const enum SegmentPrivilege dpl,
-                              const enum SystemSegmentType type)
+static uint8_t
+gdt_initsyseg_access (const bool present, const enum SegmentPrivilege dpl,
+                      const enum SystemSegmentType type)
 {
     uint8_t access_byte = 0;
     access_byte |= ((uint8_t) present) << 7;
@@ -53,7 +57,8 @@ uint8_t gdt_initsyseg_access (const bool present, const enum SegmentPrivilege dp
     return access_byte;
 }
 
-static void gdt_insert (uint64_t *gdt_entry, struct SegmentDescriptor segment)
+static void
+gdt_insert (uint64_t * const gdt_entry, const struct SegmentDescriptor segment)
 {
     uint64_t entry = 0;
 
@@ -67,7 +72,8 @@ static void gdt_insert (uint64_t *gdt_entry, struct SegmentDescriptor segment)
     *gdt_entry = entry;
 }
 
-void gdt_init (void)
+void
+gdt_init (void)
 {
     static bool init = false;
     kernel_assert (!init, "gdt_init() - Already initialized.");
@@ -129,13 +135,4 @@ void gdt_init (void)
     gdtr_init (sizeof (gdt) - 1, (uint32_t) gdt);
 
     io_serial_printf (COMPort_1, "Initialized GDT\n");
-}
-
-struct SegmentSelector segselector_init (enum Segment segment, enum TableIndex table_index,
-                                         enum SegmentPrivilege privilege)
-{
-    return (struct SegmentSelector)
-    {
-        .data = (((uint16_t) privilege) & 0b11) | ((((uint16_t) table_index) & 0b1) << 2) | (((uint16_t) segment) << 3)
-    };
 }

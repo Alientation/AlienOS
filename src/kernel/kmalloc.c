@@ -26,12 +26,12 @@ static uint32_t kheap_max_end;
 #ifdef ALIENOS_TEST
 static bool enable_debug_print = true;
 
-void kmalloc_enabledebug ()
+void kmalloc_enabledebug (void)
 {
     enable_debug_print = true;
 }
 
-void kmalloc_disabledebug ()
+void kmalloc_disabledebug (void)
 {
     enable_debug_print = false;
 }

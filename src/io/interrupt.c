@@ -1,6 +1,6 @@
 #include "alienos/io/interrupt.h"
 #include "alienos/io/io.h"
-#include "alienos/mem/mem.h"
+#include "alienos/mem/gdt.h"
 #include "alienos/kernel/kernel.h"
 
 #include "stdbool.h"
@@ -42,23 +42,6 @@
 #define ICW4_BUF_MASTER 0x0C            /* 2 bits, select buffer master */
 #define ICW4_SFNM 0x10                  /* Special fully nested mode, used in systems with large amount
                                            of cascaded controllers */
-
-/* IRQ numbers (0-15) for hardware interrupts. */
-#define IRQ_PIT 0                       /* Programmable Interrupt Timer */
-#define IRQ_KEYBOARD 1                  /* Keyboard */
-#define IRQ_CASCADE 2                   /* Cascade signals from Slave to Master PIC */
-#define IRQ_COM2 3                      /* COM2 port (if enabled) */
-#define IRQ_COM1 4                      /* COM1 port (if enabled) */
-#define IRQ_LPT2 5                      /* LPT2 port (if enabled) */
-#define IRQ_FLOPPY 6                    /* Floppy Disk */
-#define IRQ_LPT1 7                      /* LPT1 */
-#define IRQ_SPURIOUS_MASTER 7           /* Spurious interrupt from master */
-#define IRQ_CMOS_CLOCK 8                /* CMOS real time clock (if enabled) */
-#define IRQ_PS2_MOUSE 12                /* PS2 Mouse */
-#define IRQ_FPU 13                      /* FPU, Coprocessor, or inter processor */
-#define IRQ_ATA_HARD_DISK_PRIMARY 14    /* Primary ATA hard disk */
-#define IRQ_ATA_HARD_DISK_SECONDARY 15  /* Secondary ATA hard disk */
-#define IRQ_SPURIOUS_SLAVE 15           /* Spurious interrupt from slave */
 
 /* Operation Control Word (OCW) 1
    A0=1 (Data port)
@@ -123,6 +106,24 @@
 /* After a poll command is issued, the next read of the command port will return an output word. */
 #define MODE_POLL_PRIORITY_IRQ 0x07     /* IRQ with the highest priority pending interrupt */
 #define MODE_POLL_INTERRUPT 0x80        /* Set if there is an interrupt pending */
+
+/* https://wiki.osdev.org/Interrupt_Descriptor_Table */
+enum InterruptPrivilege
+{
+    InterruptPrivilege_Ring0 = 0,           /* Highest privilege (Kernel) */
+    InterruptPrivilege_Ring1 = 1,
+    InterruptPrivilege_Ring2 = 2,
+    InterruptPrivilege_Ring3 = 3,           /* Lowest privilege (User) */
+};
+
+enum InterruptType
+{
+    InterruptType_Task = 0x5,
+    InterruptType_16bit_Interrupt = 0x6,
+    InterruptType_16bit_Trap = 0x7,
+    InterruptType_32bit_Interrupt = 0xE,
+    InterruptType_32bit_Trap = 0xF,
+};
 
 struct GateDescriptor
 {
@@ -203,7 +204,7 @@ ISR (IRQ14, 0x2E);
 ISR (IRQ15, 0x2F);
 
 /* Read Interrupt Request Register. */
-static inline uint16_t PIC_read_irr (void)
+static inline uint16_t pic_read_irr (void)
 {
     /* Send OCW3 to both PIC command ports. */
     io_outb (PIC1_COMMAND, OCW3_READ_IRR);
@@ -214,7 +215,7 @@ static inline uint16_t PIC_read_irr (void)
 }
 
 /* Read Interrupt Status Register. */
-static inline uint16_t PIC_read_isr (void)
+static inline uint16_t pic_read_isr (void)
 {
     /* Send OCW3 to both PIC command ports. */
     io_outb (PIC1_COMMAND, OCW3_RR | OCW3_READ_ISR);
@@ -227,7 +228,7 @@ static inline uint16_t PIC_read_isr (void)
 /* Send the end of interrupt command to PIC chips. If IRQ came from slave PIC, need to send to both
    master and slave.
    https://wiki.osdev.org/8259_PIC#Programming_with_the_8259_PIC */
-static inline void PIC_eoi (const uint8_t irq)
+static inline void pic_eoi (const uint8_t irq)
 {
     if (irq >= 8)
     {
@@ -242,9 +243,9 @@ static inline void PIC_eoi (const uint8_t irq)
    If slave has a spurious irq, master will not know and so will have IRQ 2 set in it's ISR.
    So we need to send an EOI to master but not slave.
    Warning: Will not work proprerly if nested interrupts are allowed (SFNM). */
-static inline bool PIC_check_spurious (const uint8_t irq)
+static inline bool pic_check_spurious (const uint8_t irq)
 {
-    if ((irq == IRQ_SPURIOUS_MASTER || irq == IRQ_SPURIOUS_SLAVE) && !(PIC_read_isr () & (1 << irq)))
+    if ((irq == IRQ_SPURIOUS_MASTER || irq == IRQ_SPURIOUS_SLAVE) && !(pic_read_isr () & (1 << irq)))
     {
         io_serial_printf (COMPort_1, "Spurious IRQ %u\n", irq);
         if (irq == IRQ_SPURIOUS_SLAVE)
@@ -261,7 +262,7 @@ static inline bool PIC_check_spurious (const uint8_t irq)
    Master vectors go from offset1..offset1+7 and
    slave vectors go from offset2..offset2+7.
    https://brokenthorn.com/Resources/OSDevPic.html */
-static void PIC_remap (const uint8_t offset1, const uint8_t offset2)
+static void pic_remap (const uint8_t offset1, const uint8_t offset2)
 {
     /* ICW1 begin initialization sequence. */
     io_outb (PIC1_COMMAND, ICW1_TAG | ICW1_ICW4);
@@ -290,32 +291,38 @@ static void PIC_remap (const uint8_t offset1, const uint8_t offset2)
     io_wait ();
     io_outb (PIC2_DATA, ICW4_8086);
 
-    /* Unmask Interrupt Mask Register for timer (IRQ0) and cascade (IRQ2). */
-    io_outb (PIC1_DATA, 0b11111010);
+    /* Unmask Interrupt Mask Register for cascade (IRQ2).
+       Other interrupts will be renabled when the respective driver is initialized. */
+    io_outb (PIC1_DATA, 0b11111110);
     io_outb (PIC2_DATA, 0b11111111);
 }
 
-/* Set IRQ mask bit which will cause the PIC to ignore the specific interrupt request. */
-static void IRQ_set_mask (const uint8_t irqline)
+void irq_set_mask (const uint8_t irqline)
 {
+    const bool interrupt = interrupt_disable ();
     const uint16_t port = (irqline < 8) ? PIC1_DATA : PIC2_DATA;
     const uint8_t value = io_inb (port) | (1 << (irqline & 0b111));
     io_outb (port, value);
+    interrupt_restore (interrupt);
 }
 
-/* Clear IRQ mask bit which will cause the PIC to ignore the specific interrupt request. */
-static void IRQ_clear_mask (const uint8_t irqline)
+void irq_clear_mask (const uint8_t irqline)
 {
+    const bool interrupt = interrupt_disable ();
     const uint16_t port = (irqline < 8) ? PIC1_DATA : PIC2_DATA;
     const uint8_t value = io_inb (port) & ~(1 << (irqline & 0b111));
     io_outb (port, value);
+    interrupt_restore (interrupt);
 }
 
 /* https://wiki.osdev.org/Interrupt_Service_Routines */
 void interrupt_handler (struct InterruptFrame * const frame)
 {
-    /* Only safe because interrupts have been disabled for this serial port. */
-    io_serial_printf (COMPort_1, "Interrupt %x (err: %x)\n", frame->intno, frame->errcode);
+    /* Ignore printing debug info for timer interrupts. */
+    if (frame->intno != INT_IRQ0)
+    {
+        io_serial_printf (COMPort_1, "Interrupt %x (err: %x)\n", frame->intno, frame->errcode);
+    }
 
     switch (frame->intno)
     {
@@ -349,9 +356,9 @@ void interrupt_handler (struct InterruptFrame * const frame)
     if (frame->intno >= PIC1_OFFSET && frame->intno <= PIC2_OFFSET + 7)
     {
         const uint8_t irq = frame->intno - PIC1_OFFSET;
-        if (!PIC_check_spurious (irq))
+        if (!pic_check_spurious (irq))
         {
-            PIC_eoi (irq);
+            pic_eoi (irq);
         }
     }
 }
@@ -389,9 +396,6 @@ void idt_init (void)
     static bool init = false;
     kernel_assert (!init, "Already initialized IDT");
     init = true;
-
-    /* Disable hardware interrupts. */
-    asm volatile ("cli");
 
     /* Fill IDT entries. */
     for (size_t i = 0; i < IDT_ENTRIES; i++)
@@ -449,20 +453,7 @@ void idt_init (void)
     idtr_init (sizeof (idt) - 1, (uint32_t) idt);
 
     /* Remap PIC IRQs into the IDT. */
-    PIC_remap (PIC1_OFFSET, PIC2_OFFSET);
-
-    /* TODO: mask all IRQs initially, reenable once each corresponding driver is initialized. */
-
-    /* Re-enable hardware interrupts. */
-    asm volatile ("sti");
+    pic_remap (PIC1_OFFSET, PIC2_OFFSET);
 
     io_serial_printf (COMPort_1, "Initialized IDT\n");
-
-    // Command: Channel 0, access mode LO/HI, Mode 3 (square wave), binary
-    io_outb(0x43, 0x36);
-
-    // Set frequency to ~100Hz (1193182 / 100 = 11931)
-    uint16_t divisor = 11931;
-    io_outb(0x40, (uint8_t)(divisor & 0xFF));
-    io_outb(0x40, (uint8_t)((divisor >> 8) & 0xFF));
 }
