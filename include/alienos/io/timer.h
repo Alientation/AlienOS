@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+/* Number of timer interrupts. */
+extern volatile uint32_t timer_ticks;
+
 /* Initializes PIT channel 0 to generate repeating IRQ0 every 10 ms. */
 void timer_init (void);
 

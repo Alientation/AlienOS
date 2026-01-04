@@ -107,6 +107,9 @@
 #define MODE_POLL_PRIORITY_IRQ 0x07     /* IRQ with the highest priority pending interrupt */
 #define MODE_POLL_INTERRUPT 0x80        /* Set if there is an interrupt pending */
 
+/* Number of timer interrupts. */
+volatile uint32_t timer_ticks = 0;
+
 /* https://wiki.osdev.org/Interrupt_Descriptor_Table */
 enum InterruptPrivilege
 {
@@ -322,6 +325,11 @@ void interrupt_handler (struct InterruptFrame * const frame)
     if (frame->intno != INT_IRQ0)
     {
         io_serial_printf (COMPort_1, "Interrupt %x (err: %x)\n", frame->intno, frame->errcode);
+    }
+
+    if (frame->intno == INT_IRQ0)
+    {
+        timer_ticks++;
     }
 
     switch (frame->intno)
