@@ -1,5 +1,5 @@
-#ifndef INCLUDE_ALIENOS_IO_IO_H
-#define INCLUDE_ALIENOS_IO_IO_H
+#ifndef ALIENOS_IO_IO_H
+#define ALIENOS_IO_IO_H
 
 #include <stdarg.h>
 #include <stdbool.h>
@@ -196,4 +196,4 @@ void io_writebool (void (*output_char)(char), bool b);
 
 void io_printf (void (*output_char)(char), const char *format, va_list params);
 
-#endif /* INCLUDE_ALIENOS_IO_IO_H */
+#endif /* ALIENOS_IO_IO_H */

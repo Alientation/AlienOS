@@ -1,5 +1,5 @@
-#ifndef INCLUDE_MEM_KMALLOC_H
-#define INCLUDE_MEM_KMALLOC_H
+#ifndef ALIENOS_MEM_KMALLOC_H
+#define ALIENOS_MEM_KMALLOC_H
 
 #include "alienos/kernel/multiboot.h"
 
@@ -61,4 +61,4 @@ void kmalloc_enabledebug (void);
 void kmalloc_disabledebug (void);
 #endif
 
-#endif /* INCLUDE_MEM_KAMLLOC_H */
+#endif /* ALIENOS_MEM_KAMLLOC_H */

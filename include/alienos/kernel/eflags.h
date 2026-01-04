@@ -1,5 +1,5 @@
-#ifndef INCLUDE_KERNEL_EFLAGS_H
-#define INCLUDE_KERNEL_EFLAGS_H
+#ifndef ALIENOS_KERNEL_EFLAGS_H
+#define ALIENOS_KERNEL_EFLAGS_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -109,4 +109,4 @@ static inline void eflags_setflag (uint8_t lsb, uint8_t width, uint32_t val)
     eflags_set (flags);
 }
 
-#endif /* INCLUDE_KERNEL_EFLAGS_H */
+#endif /* ALIENOS_KERNEL_EFLAGS_H */

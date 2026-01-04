@@ -1,5 +1,5 @@
-#ifndef INCLUDE_ALIENOS_IO_TERMINAL_H
-#define INCLUDE_ALIENOS_IO_TERMINAL_H
+#ifndef ALIENOS_IO_TERMINAL_H
+#define ALIENOS_IO_TERMINAL_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -54,4 +54,4 @@ void terminal_writebool (bool b);
 void terminal_printf (const char *format, ...);
 
 
-#endif /* INCLUDE_ALIENOS_IO_TERMINAL_H */
+#endif /* ALIENOS_IO_TERMINAL_H */

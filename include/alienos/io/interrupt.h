@@ -1,5 +1,5 @@
-#ifndef INCLUDE_ALIENOS_IO_INTERRUPT_H
-#define INCLUDE_ALIENOS_IO_INTERRUPT_H
+#ifndef ALIENOS_IO_INTERRUPT_H
+#define ALIENOS_IO_INTERRUPT_H
 
 #include "alienos/kernel/eflags.h"
 
@@ -66,4 +66,4 @@ static inline bool interrupt_disable (void)
     return prev_enabled;
 }
 
-#endif /* INCLUDE_ALIENOS_IO_INTERRUPT_H */
+#endif /* ALIENOS_IO_INTERRUPT_H */

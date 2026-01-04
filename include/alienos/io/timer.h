@@ -1,5 +1,5 @@
-#ifndef INCLUDE_ALIENOS_IO_TIMER_H
-#define INCLUDE_ALIENOS_IO_TIMER_H
+#ifndef ALIENOS_IO_TIMER_H
+#define ALIENOS_IO_TIMER_H
 
 #include <stdint.h>
 
@@ -16,4 +16,4 @@ uint32_t timer_read_count (void);
 void timer_set_reload (uint16_t reload_value);
 
 
-#endif /* INCLUDE_ALIENOS_IO_TIMER_H */
+#endif /* ALIENOS_IO_TIMER_H */

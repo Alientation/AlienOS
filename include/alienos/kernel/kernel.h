@@ -1,5 +1,5 @@
-#ifndef INCLUDE_KERNEL_KERNEL_H
-#define INCLUDE_KERNEL_KERNEL_H
+#ifndef ALIENOS_KERNEL_KERNEL_H
+#define ALIENOS_KERNEL_KERNEL_H
 
 #include <stdbool.h>
 
@@ -13,4 +13,4 @@ void kernel_assert (bool cond, const char *format, ...);
 /* Halt CPU. */
 void kernel_halt (void);
 
-#endif /* INCLUDE_KERNEL_KERNEL_H */
+#endif /* ALIENOS_KERNEL_KERNEL_H */

@@ -1,5 +1,5 @@
-#ifndef INCLUDE_MEM_GDT_H
-#define INCLUDE_MEM_GDT_H
+#ifndef ALIENOS_MEM_GDT_H
+#define ALIENOS_MEM_GDT_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -111,4 +111,4 @@ segselector_init (const enum Segment segment, const enum TableIndex table_index,
     };
 }
 
-#endif /* INCLUDE_MEM_GDT_H */
+#endif /* ALIENOS_MEM_GDT_H */
