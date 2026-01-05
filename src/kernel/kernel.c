@@ -102,6 +102,12 @@ void kernel_main(const unsigned int magic, const multiboot_info_t * const mbinfo
 	unit_tests ();
 #endif
 
+	for (uint32_t i = 0; i < 10; i++)
+	{
+		io_serial_printf (COMPort_1, "Main Heartbeat\n");
+		thread_sleep (100);
+	}
+
 	cpu_idle_loop ();
 }
 

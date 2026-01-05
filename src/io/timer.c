@@ -153,6 +153,7 @@ void timer_set_reload (const uint16_t reload_value)
     interrupt_restore (interrupt);
 }
 
+extern void thread_timer_tick (void);
 void timer_callback ()
 {
     static bool first_tick = true;
@@ -162,4 +163,6 @@ void timer_callback ()
     }
     timer_ticks++;
     first_tick = false;
+
+    thread_timer_tick ();
 }

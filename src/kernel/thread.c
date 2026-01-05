@@ -6,6 +6,7 @@
 #include "alienos/kernel/eflags.h"
 #include "alienos/cpu/cpu.h"
 #include "alienos/io/io.h"
+#include "alienos/io/timer.h"
 
 static thread_t *threads[MAX_THREADS] = {0};
 thread_t *current_thread = NULL;
@@ -13,8 +14,6 @@ static thread_t *idle_thread = NULL;
 
 static void schedule (thread_t * const next_thread)
 {
-    // io_serial_printf (COMPort_1, "schedule tid %u\n", next_thread->tid);
-
     /* Stay on current thread. */
     if (current_thread == next_thread)
     {
@@ -48,7 +47,7 @@ static void thread_exit (void)
 static thread_t *find_ready_thread ()
 {
     static size_t i = 0;
-    for (size_t offset = 1; offset < MAX_THREADS; offset++)
+    for (size_t offset = 1; offset <= MAX_THREADS; offset++)
     {
         const size_t thread_idx = (i + offset) % MAX_THREADS;
 
@@ -72,10 +71,10 @@ static thread_t *find_ready_thread ()
         }
     }
 
-    return current_thread->status == ThreadStatus_Ready ? current_thread : idle_thread;
+    return idle_thread;
 }
 
-static thread_t *internal_thread_init (void (*entry_point) (void *arg), void *arg)
+static thread_t *internal_thread_init (void (* const entry_point) (void *arg), void * const arg)
 {
     /* TID 0 reserved for initial main thread. */
     static uint32_t next_tid = 1;
@@ -148,7 +147,7 @@ void scheduler_next (void)
     schedule (find_ready_thread ());
 }
 
-thread_t *thread_create_arg (void (*entry_point) (void *), void *arg)
+thread_t *thread_create_arg (void (* const entry_point) (void *), void * const arg)
 {
     thread_t **thread_arr_location = NULL;
     for (size_t i = 0; i < MAX_THREADS; i++)
@@ -167,7 +166,7 @@ thread_t *thread_create_arg (void (*entry_point) (void *), void *arg)
     return thread;
 }
 
-thread_t *thread_create (void (*entry_point) (void))
+thread_t *thread_create (void (* const entry_point) (void))
 {
     return thread_create_arg ((void (*)(void *)) entry_point, NULL);
 }
@@ -176,4 +175,24 @@ void thread_yield (void)
 {
     /* Trigger IRQ0 to schedule new thread. */
     asm volatile ("int $0x20");
+}
+
+void thread_sleep (const uint32_t ticks)
+{
+    io_serial_printf (COMPort_1, "Thread %u Sleep for %u ticks\n", current_thread->tid, ticks);
+    current_thread->wakeup_ticks = timer_ticks + ticks;
+    current_thread->status = ThreadStatus_Sleeping;
+    thread_yield ();
+    io_serial_printf (COMPort_1, "Thread %u woke up after %u ticks\n", current_thread->tid, ticks);
+}
+
+void thread_timer_tick (void)
+{
+    for (size_t i = 0; i < MAX_THREADS; i++)
+    {
+        if (threads[i] && threads[i]->status == ThreadStatus_Sleeping && threads[i]->wakeup_ticks <= timer_ticks)
+        {
+            threads[i]->status = ThreadStatus_Ready;
+        }
+    }
 }

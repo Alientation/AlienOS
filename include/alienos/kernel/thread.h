@@ -41,6 +41,9 @@ void thread_main_init (void);
 /* Cooperatively yield execution. */
 void thread_yield (void);
 
+/* Sleep thread for a number of timer ticks. */
+void thread_sleep (uint32_t ticks);
+
 /* Attempt to schedule a new thread. */
 void scheduler_next (void);
 
