@@ -17,7 +17,7 @@ enum Segment
     SegmentKernelData = 2,
     SegmentUserCode = 3,
     SegmentUserData = 4,
-    SegmentTask = 5,
+    SegmentTaskState = 5,
 };
 
 /* Privilege level of segment. */
@@ -95,20 +95,27 @@ struct SegmentSelector
 {
     uint16_t data;          /* Low 3 bits are used for flags, upper bits are the address of segment
                                in GDT or LDT, which is always 8 byte aligned */
-};
+} __attribute__((packed));
+
+struct TSS
+{
+    uint32_t prev_tss;      /* Previous TSS */
+    uint32_t esp0;          /* Stack pointer to load when entering ring 0 */
+    uint32_t ss0;           /* Stack segment to load when entering ring 0 */
+    uint32_t esp1; uint32_t ss1;
+    uint32_t esp2; uint32_t ss2;
+    uint32_t cr3;
+    uint32_t eip, eflags, eax, ecx, edx, ebx, esp, ebp, esi, edi;
+    uint32_t es, cs, ss, ds, fs, gs;
+    uint32_t ldt;
+    uint16_t trap, iomap_base;
+} __attribute__((packed));
 
 /* Initialize the GDT. */
 void gdt_init (void);
 
 /* Initialize a segment selector. Used in IDT. */
-static struct SegmentSelector
-segselector_init (const enum Segment segment, const enum TableIndex table_index,
-                  const enum SegmentPrivilege privilege)
-{
-    return (struct SegmentSelector)
-    {
-        .data = (((uint16_t) privilege) & 0b11) | ((((uint16_t) table_index) & 0b1) << 2) | (((uint16_t) segment) << 3)
-    };
-}
+struct SegmentSelector
+segselector_init (enum Segment segment, enum TableIndex table_index, enum SegmentPrivilege privilege);
 
 #endif /* ALIENOS_MEM_GDT_H */

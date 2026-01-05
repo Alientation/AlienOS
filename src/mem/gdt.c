@@ -2,11 +2,20 @@
 #include "alienos/kernel/kernel.h"
 #include "alienos/io/io.h"
 
-/* TODO: Should use struct with 2 uint32_t instead since we are targetting a 32 bit architecture. */
-uint64_t gdt[5];
+struct GDTEntry
+{
+    uint32_t data[2];
+} __attribute__((packed));
+
+struct GDTEntry gdt[6];
+
+static struct TSS tss;
 
 extern void
 gdtr_init (uint16_t size, uint32_t offset);
+
+extern void
+tss_flush (struct SegmentSelector selector);
 
 static uint8_t
 gdt_initseg_access (const bool present, const enum SegmentPrivilege dpl, const bool executable,
@@ -58,18 +67,20 @@ gdt_initsyseg_access (const bool present, const enum SegmentPrivilege dpl,
 }
 
 static void
-gdt_insert (uint64_t * const gdt_entry, const struct SegmentDescriptor segment)
+gdt_insert (struct GDTEntry * const gdt_entry, const struct SegmentDescriptor segment)
 {
-    uint64_t entry = 0;
+    uint32_t data[2] = {0, 0};
 
-    entry |= (segment.limit & 0xFFFF);
-    entry |= ((uint64_t) segment.base & 0xFFFFFF) << 16;
-    entry |= ((uint64_t) segment.access & 0xFF) << 40;
-    entry |= (((uint64_t) segment.limit & 0xF0000) >> 16) << 48;
-    entry |= ((uint64_t) segment.flags & 0xF) << 52;
-    entry |= (((uint64_t) segment.base & 0xFF000000) >> 24) << 56;
+    data[0] |= (segment.limit & 0xFFFF);
+    data[0] |= ((uint32_t) segment.base & 0xFFFF) << 16;
+    data[1] |= ((segment.base >> 16) & 0xFF);
+    data[1] |= ((uint32_t) segment.access & 0xFF) << 8;
+    data[1] |= ((uint32_t) segment.limit & 0xF0000);
+    data[1] |= ((uint32_t) segment.flags & 0xF) << 20;
+    data[1] |= ((uint32_t) segment.base & 0xFF000000);
 
-    *gdt_entry = entry;
+    gdt_entry->data[0] = data[0];
+    gdt_entry->data[1] = data[1];
 }
 
 void
@@ -80,7 +91,8 @@ gdt_init (void)
     init = true;
 
     /* Null descriptor. */
-    gdt[SegmentNull] = 0;
+    gdt[SegmentNull].data[0] = 0;
+    gdt[SegmentNull].data[1] = 0;
 
     /* Kernel mode code segment. */
     gdt_insert (&gdt[SegmentKernelCode], (struct SegmentDescriptor)
@@ -123,16 +135,29 @@ gdt_init (void)
     });
 
     /* Task state segment. */
-    // gdt_insert (&gdt[5], (struct SegmentDescriptor)
-    // {
-    //     .base = &TSS,
-    //     .limit = sizeof (TSS) - 1,
-    //     .access = gdt_initsyseg_access (true, SegmentPrivilege_Ring0, SystemSegmentType_32bit_Available),
-    //     .flags = gdt_init_flags (SegmentGranularityFlag_Page, SegmentSizeFlag_32bit),
-    // });
+    gdt_insert (&gdt[SegmentTaskState], (struct SegmentDescriptor)
+    {
+        .base = (uintptr_t) &tss,
+        .limit = sizeof (tss) - 1,
+        .access = gdt_initsyseg_access (true, SegmentPrivilege_Ring0, SystemSegmentType_32bit_Available),
+        .flags = gdt_init_flags (SegmentGranularityFlag_Page, SegmentSizeFlag_32bit),
+    });
 
     /* GDTR size is one less than actual size. */
     gdtr_init (sizeof (gdt) - 1, (uint32_t) gdt);
 
+    /* Load Task Register. */
+    tss_flush (segselector_init (SegmentTaskState, TableIndex_GDT, SegmentPrivilege_Ring0));
+
     io_serial_printf (COMPort_1, "Initialized GDT\n");
+}
+
+struct SegmentSelector
+segselector_init (const enum Segment segment, const enum TableIndex table_index,
+                  const enum SegmentPrivilege privilege)
+{
+    return (struct SegmentSelector)
+    {
+        .data = (((uint16_t) privilege) & 0b11) | ((((uint16_t) table_index) & 0b1) << 2) | (((uint16_t) segment) << 3)
+    };
 }

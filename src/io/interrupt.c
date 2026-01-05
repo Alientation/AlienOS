@@ -131,7 +131,7 @@ enum InterruptType
 struct GateDescriptor
 {
     uint32_t d[2];
-};
+} __attribute__((packed));
 
 #define IDT_ENTRIES 256
 struct GateDescriptor idt[IDT_ENTRIES];
@@ -150,7 +150,7 @@ struct InterruptFrame
 
     /* Pushed if a privilege level switch occurs. */
     uint32_t oldesp, oldss;
-};
+} __attribute__((packed));
 
 /* Initialize the IDTR register, point to the IDT table. */
 extern void idtr_init (uint16_t size, uint32_t offset);
@@ -321,15 +321,20 @@ void irq_clear_mask (const uint8_t irqline)
 /* https://wiki.osdev.org/Interrupt_Service_Routines */
 void interrupt_handler (struct InterruptFrame * const frame)
 {
-    /* Ignore printing debug info for timer interrupts. */
-    if (frame->intno != INT_IRQ0)
-    {
-        io_serial_printf (COMPort_1, "Interrupt %x (err: %x)\n", frame->intno, frame->errcode);
-    }
-
     if (frame->intno == INT_IRQ0)
     {
+        static bool first_tick = true;
+        if (first_tick)
+        {
+            io_serial_printf (COMPort_1, "Timer Alive\n");
+        }
         timer_ticks++;
+        first_tick = false;
+    }
+    else
+    {
+        /* Ignore printing debug info for timer interrupts. */
+        io_serial_printf (COMPort_1, "Interrupt %x (err: %x)\n", frame->intno, frame->errcode);
     }
 
     switch (frame->intno)

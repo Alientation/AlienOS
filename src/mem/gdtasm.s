@@ -30,6 +30,16 @@ gdtr_init:
 .size gdtr_init, . - gdtr_init
 
 
+/* Load the TSS */
+.global tss_flush
+.type tss_flush, @function
+tss_flush:
+    movw 4(%esp), %ax               /* Load 16 bit selector from stack into AX */
+    ltr %ax                         /* Load Task Register with the selector */
+    ret
+.size tss_flush, . - tss_flush
+
+
 /* Reload segments when GDT is updated. */
 .global reload_segments
 .type reload_segments, @function
