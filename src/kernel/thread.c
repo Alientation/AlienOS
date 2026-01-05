@@ -196,3 +196,29 @@ void thread_timer_tick (void)
         }
     }
 }
+
+uint32_t thread_count (void)
+{
+    uint32_t count = 0;
+    for (size_t i = 0; i < MAX_THREADS; i++)
+    {
+        if (threads[i])
+        {
+            count++;
+        }
+    }
+    return count;
+}
+
+uint32_t thread_count_status (const enum ThreadStatus status)
+{
+    uint32_t count = 0;
+    for (size_t i = 0; i < MAX_THREADS; i++)
+    {
+        if (threads[i] && threads[i]->status == status)
+        {
+            count++;
+        }
+    }
+    return count;
+}

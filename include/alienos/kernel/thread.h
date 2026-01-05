@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define MAX_THREADS 32
+#define MAX_THREADS 128
 #define THREAD_STACK_SPACE (1 << 14)
 
 typedef uint32_t tid_t;
@@ -12,7 +12,7 @@ typedef struct Thread
 {
     tid_t tid;                      /* Unique thread identifier */
     uint32_t esp;                   /* Stack pointer for the thread, all other state will be stored there */
-    enum KThreadStatus
+    enum ThreadStatus
     {
         ThreadStatus_Ready,
         ThreadStatus_Running,
@@ -43,6 +43,13 @@ void thread_yield (void);
 
 /* Sleep thread for a number of timer ticks. */
 void thread_sleep (uint32_t ticks);
+
+/* Count how many threads there are including zombie, blocked, and sleeping threads. Does not count the
+   always active idle thread. */
+uint32_t thread_count (void);
+
+/* Count how many threads have a specific status. Does not count the idle thread. */
+uint32_t thread_count_status (enum ThreadStatus status);
 
 /* Attempt to schedule a new thread. */
 void scheduler_next (void);

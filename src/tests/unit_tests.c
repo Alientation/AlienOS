@@ -8,6 +8,7 @@ void unit_tests (void)
     struct UnitTestsResult results = {0};
     kmalloc_test (&results);
     io_test (&results);
+    thread_test (&results);
 
     io_serial_printf (COMPort_1, "Completed Unit Tests\n%u total tests, %u failed\n",
                       results.total_tests, results.failed_tests);
