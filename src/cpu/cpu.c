@@ -8,7 +8,8 @@ void cpu_idle_loop (void)
 		asm volatile
 		(
 			"sti\n"
-			"hlt"
+			"hlt\n"
+			"cli"
 		);
 
 		scheduler_next ();

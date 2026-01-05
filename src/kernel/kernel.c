@@ -74,6 +74,7 @@ void kernel_main(const unsigned int magic, const multiboot_info_t * const mbinfo
 	unit_tests ();
 #endif
 
+	io_serial_printf (COMPort_1, "Kernel Main Thread Idling\n");
 	cpu_idle_loop ();
 }
 

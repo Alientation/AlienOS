@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 
-#define MAX_THREADS 128
 #define THREAD_STACK_SPACE (1 << 14)
 
 typedef uint32_t tid_t;
@@ -11,7 +10,9 @@ typedef uint32_t tid_t;
 typedef struct Thread
 {
     tid_t tid;                      /* Unique thread identifier */
-    uint32_t esp;                   /* Stack pointer for the thread, all other state will be stored there */
+    uint32_t esp;                   /* Stack pointer for the thread, all other state will be stored there.
+                                       WARNING, ensure this field sits at offset 4, the timer interrupt
+                                       handler expects it to sit there. */
     enum ThreadStatus
     {
         ThreadStatus_Ready,
@@ -25,6 +26,9 @@ typedef struct Thread
     uint32_t wakeup_ticks;          /* When should the thread be woken up */
     void *stack_base;               /* Since we are using physical memory, we allocate the thread
                                        stack on the heap */
+
+    struct Thread *next;            /* Next thread in linked list */
+    struct Thread *prev;            /* Previous thread in linked list */
 } thread_t;
 
 extern thread_t *current_thread;
@@ -44,14 +48,20 @@ void thread_yield (void);
 /* Sleep thread for a number of timer ticks. */
 void thread_sleep (uint32_t ticks);
 
-/* Count how many threads there are including zombie, blocked, and sleeping threads. Does not count the
-   always active idle thread. */
+/* Count how many threads there are including zombie, blocked, and sleeping threads. Includes main thread
+   and idle thread. */
 uint32_t thread_count (void);
 
-/* Count how many threads have a specific status. Does not count the idle thread. */
-uint32_t thread_count_status (enum ThreadStatus status);
+/* Count how many ready threads there are. */
+uint32_t thread_count_ready (void);
 
-/* Attempt to schedule a new thread. */
+/* Count how many sleeping threads there are. */
+uint32_t thread_count_sleeping (void);
+
+/* Count how many zombie threads there are. */
+uint32_t thread_count_zombie (void);
+
+/* Attempt to schedule a new thread. Ensure synchronization before calling. */
 void scheduler_next (void);
 
 #endif /* ALIENOS_KERNEL_KTHREAD_H */

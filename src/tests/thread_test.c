@@ -28,6 +28,7 @@ static const char *test_multiple_threads (void)
 		thread_create_arg (thread_test_loop, &threads[i]);
 	}
 
+	io_serial_printf (COMPort_1, "COUNT: %u\n", thread_count ());
     if (thread_count () < 6) return "Failed: thread_create_arg()";
 
 	for (uint32_t i = 0; i < 8; i++)
