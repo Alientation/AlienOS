@@ -118,8 +118,8 @@ void timer_init (void)
     io_outb (COMMAND_PORT, command_init (Command_Channel0, AccessMode_BothBytes, OperatingMode_Mode3,
              EncodingMode_Binary));
 
-    /* Set frequency to ~100Hz (1193182 / 100 = 11931) */
-    const uint16_t divisor = 11931;
+    /* Set frequency to ~1000Hz (1193182 / 1000 = 1193) */
+    const uint16_t divisor = PIT_CLOCK_HZ / TIMER_FREQ_HZ;
     io_outb (CHANNEL0_DATA_PORT, (uint8_t) (divisor & 0xFF));
     io_outb (CHANNEL0_DATA_PORT, (uint8_t) ((divisor >> 8) & 0xFF));
 
