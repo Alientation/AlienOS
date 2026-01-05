@@ -94,8 +94,11 @@ struct ReadBackCommand
     bool latch_count;                       /* (0) latch count, (1) don't latch count */
 };
 
-
 typedef uint8_t CommandWord;
+
+/* Number of timer interrupts. */
+volatile uint32_t timer_ticks = 0;
+
 
 CommandWord command_init (enum Command channel, enum AccessMode access, enum OperatingMode mode,
                           enum EncodingMode encoding)
@@ -148,4 +151,15 @@ void timer_set_reload (const uint16_t reload_value)
     io_outb (CHANNEL0_DATA_PORT, (uint8_t) ((reload_value >> 8) & 0xFF));
 
     interrupt_restore (interrupt);
+}
+
+void timer_callback ()
+{
+    static bool first_tick = true;
+    if (first_tick)
+    {
+        io_serial_printf (COMPort_1, "Timer Alive\n");
+    }
+    timer_ticks++;
+    first_tick = false;
 }

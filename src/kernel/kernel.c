@@ -7,6 +7,8 @@
 #include "alienos/mem/kmalloc.h"
 #include "alienos/tests/unit_tests.h"
 #include "alienos/io/timer.h"
+#include "alienos/kernel/thread.h"
+#include "alienos/cpu/cpu.h"
 
 #include <stdarg.h>
 #include <stddef.h>
@@ -20,9 +22,6 @@
 #if !defined(__i386__)
 #error "Needs to be compiled with a ix86-elf compiler"
 #endif
-
-extern void panic_halt (void);
-
 
 static void test_io (void)
 {
@@ -88,6 +87,9 @@ void kernel_main(const unsigned int magic, const multiboot_info_t * const mbinfo
 	/* Set up repeating timer interrupts. */
 	timer_init ();
 
+	/* Initialize the main thread. */
+	thread_main_init ();
+
 	/* ====== INITIALIZATION DONE ====== */
 	interrupt_enable ();
 	io_serial_printf (COMPort_1, "Kernel Initialize Completed\n");
@@ -100,13 +102,7 @@ void kernel_main(const unsigned int magic, const multiboot_info_t * const mbinfo
 	unit_tests ();
 #endif
 
-	while (true)
-	{
-		for (size_t i = 0; i < 1000000000ULL; i++)
-		{
-			continue;
-		}
-	}
+	cpu_idle_loop ();
 }
 
 static void internal_kernel_panic (const char * const format, va_list params)
@@ -114,7 +110,7 @@ static void internal_kernel_panic (const char * const format, va_list params)
 	io_serial_printf (COMPort_1, "KERNAL PANIC!!!\n");
 	io_printf (io_com1_outb, format, params);
 	io_serial_printf (COMPort_1, "\n");
-	panic_halt ();
+	cpu_halt ();
 }
 
 void kernel_panic (const char * const format, ...)
@@ -134,9 +130,4 @@ void kernel_assert (const bool cond, const char * const format, ...)
 		internal_kernel_panic (format, params);
 		va_end (params);
 	}
-}
-
-void kernel_halt (void)
-{
-	asm volatile ("hlt");
 }

@@ -107,9 +107,6 @@
 #define MODE_POLL_PRIORITY_IRQ 0x07     /* IRQ with the highest priority pending interrupt */
 #define MODE_POLL_INTERRUPT 0x80        /* Set if there is an interrupt pending */
 
-/* Number of timer interrupts. */
-volatile uint32_t timer_ticks = 0;
-
 /* https://wiki.osdev.org/Interrupt_Descriptor_Table */
 enum InterruptPrivilege
 {
@@ -154,6 +151,9 @@ struct InterruptFrame
 
 /* Initialize the IDTR register, point to the IDT table. */
 extern void idtr_init (uint16_t size, uint32_t offset);
+
+/* IRQ0 handler. */
+extern void irq0_handler (void);
 
 /* Interrupt function handlers defined in interruptasm.s, redirects to centralized interrupt handler. */
 #define ISR(mnemonic, intno) const uint8_t INT_##mnemonic = intno; extern void isr_##mnemonic (void)
@@ -318,24 +318,25 @@ void irq_clear_mask (const uint8_t irqline)
     interrupt_restore (interrupt);
 }
 
+static void irq_handler (struct InterruptFrame * const frame)
+{
+    const uint8_t irq = frame->intno - PIC1_OFFSET;
+
+    if (irq == IRQ_PIT)
+    {
+        kernel_panic ("interrupt_handler() received IRQ0, interrupt should be directed to irq0_handler()");
+    }
+
+    if (!pic_check_spurious (irq))
+    {
+        pic_eoi (irq);
+    }
+}
+
 /* https://wiki.osdev.org/Interrupt_Service_Routines */
 void interrupt_handler (struct InterruptFrame * const frame)
 {
-    if (frame->intno == INT_IRQ0)
-    {
-        static bool first_tick = true;
-        if (first_tick)
-        {
-            io_serial_printf (COMPort_1, "Timer Alive\n");
-        }
-        timer_ticks++;
-        first_tick = false;
-    }
-    else
-    {
-        /* Ignore printing debug info for timer interrupts. */
-        io_serial_printf (COMPort_1, "Interrupt %x (err: %x)\n", frame->intno, frame->errcode);
-    }
+    io_serial_printf (COMPort_1, "Interrupt %x (err: %x)\n", frame->intno, frame->errcode);
 
     switch (frame->intno)
     {
@@ -359,26 +360,18 @@ void interrupt_handler (struct InterruptFrame * const frame)
         case INT_IRQ13:
         case INT_IRQ14:
         case INT_IRQ15:
+            irq_handler (frame);
             break;
 
         default:
             kernel_panic ("Invalid Interrupt Number");
             break;
     }
-
-    if (frame->intno >= PIC1_OFFSET && frame->intno <= PIC2_OFFSET + 7)
-    {
-        const uint8_t irq = frame->intno - PIC1_OFFSET;
-        if (!pic_check_spurious (irq))
-        {
-            pic_eoi (irq);
-        }
-    }
 }
 
 /* https://wiki.osdev.org/Interrupt_Descriptor_Table */
 static void fill_entry (struct GateDescriptor * const entry, const uint32_t offset,
-                        const struct SegmentSelector segment_selector, const enum InterruptType type,
+                        const SegmentSelector segment_selector, const enum InterruptType type,
                         const enum InterruptPrivilege privilege, const bool present)
 {
     uint32_t d0 = 0;
@@ -386,7 +379,7 @@ static void fill_entry (struct GateDescriptor * const entry, const uint32_t offs
 
     /* Least significant bytes, bits 0-31. */
     d0 |= offset & 0xFFFF;
-    d0 |= segment_selector.data << 16;
+    d0 |= ((uint32_t) segment_selector) << 16;
 
     /* Most significant bytes, bits 32-63. */
     d1 |= ((uint32_t) type & 0b1111) << 8;

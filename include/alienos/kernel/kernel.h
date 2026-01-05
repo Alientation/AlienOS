@@ -10,7 +10,4 @@ void kernel_panic (const char *format, ...);
 /* Kernel Panic if condition is false. */
 void kernel_assert (bool cond, const char *format, ...);
 
-/* Halt CPU. */
-void kernel_halt (void);
-
 #endif /* ALIENOS_KERNEL_KERNEL_H */

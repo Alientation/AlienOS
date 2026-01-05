@@ -6,6 +6,8 @@
 
 /* Useful definitions for the contents of the x86 FLAGS register. */
 
+#define EFLAGS_DEFAULT 0x202
+
 /* Carry flag (status): (1) carry, (0) no carry. */
 #define EFLAGS_CF_BIT 0
 #define EFLAGS_CF (1 << EFLAGS_CF_BIT)

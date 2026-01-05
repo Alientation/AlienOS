@@ -41,11 +41,12 @@ _start:
 
 
 /* Halts the CPU when kernal panics. */
-.global panic_halt
-.type panic_halt, @function
-panic_halt:
+.global cpu_halt
+.type cpu_halt, @function
+cpu_halt:
     cli                             /* Disable maskable interrupts */
 .loop:
     hlt                             /* Halt CPU */
     jmp .loop                       /* Jump back if non-maskable interrupts wakes the CPU */
-.size panic_halt, . - panic_halt
+.size cpu_halt, . - cpu_halt
+

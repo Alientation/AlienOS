@@ -70,7 +70,6 @@ isrer _SX, 0x1E
 isr _SYS, 0x80
 
 /* Interrupts from PIC (IRQ0-15) */
-isr _IRQ0, 0x20
 isr _IRQ1, 0x21
 isr _IRQ2, 0x22
 isr _IRQ3, 0x23
@@ -102,3 +101,64 @@ isr_wrapper:
     addl $8, %esp               /* Pop intnum and errcode from stack */
     iret
 .size isr_wrapper, . - isr_wrapper
+
+
+/* Handle Timer interrupt (IRQ0). */
+.global isr_IRQ0
+.type isr_IRQ0, @function
+.extern scheduler_next
+.extern timer_callback
+.extern current_thread
+isr_IRQ0:
+    /* CPU has already pushed EFLAGS, CS and EIP. */
+
+    /* Save GPRs. */
+    pushl %eax
+    pushl %ecx
+    pushl %edx
+    pushl %ebx
+    pushl %ebp
+    pushl %esi
+    pushl %edi
+
+    /* Save segments. */
+    pushl %ds
+    pushl %es
+    pushl %fs
+    pushl %gs
+
+    call timer_callback
+
+    /* Update current thread's esp in TCB. */
+    movl current_thread, %eax
+    movl %esp, 4(%eax)          /* esp is second field (offset 4) */
+
+    /* Send EOI to PIC. */
+    movb $0x20, %al
+    outb %al, $0x20
+
+    /* Call scheduler to pick next thread. */
+    call scheduler_next
+
+    /* Load ESP of the new thread. */
+    movl current_thread, %eax
+    movl 4(%eax), %esp          /* esp is second field (offset 4) */
+
+    /* Restore segment registers. */
+    popl %gs
+    popl %fs
+    popl %es
+    popl %ds
+
+    /* Restore GPRs. */
+    popl %edi
+    popl %esi
+    popl %ebp
+    popl %ebx
+    popl %edx
+    popl %ecx
+    popl %eax
+
+    /* Return from interrupt, pops EIP, CS, and EFLAGs automatically */
+    iret
+.size isr_IRQ0, . - isr_IRQ0

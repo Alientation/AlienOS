@@ -15,7 +15,7 @@ extern void
 gdtr_init (uint16_t size, uint32_t offset);
 
 extern void
-tss_flush (struct SegmentSelector selector);
+tss_flush (SegmentSelector selector);
 
 static uint8_t
 gdt_initseg_access (const bool present, const enum SegmentPrivilege dpl, const bool executable,
@@ -152,12 +152,13 @@ gdt_init (void)
     io_serial_printf (COMPort_1, "Initialized GDT\n");
 }
 
-struct SegmentSelector
+SegmentSelector
 segselector_init (const enum Segment segment, const enum TableIndex table_index,
                   const enum SegmentPrivilege privilege)
 {
-    return (struct SegmentSelector)
-    {
-        .data = (((uint16_t) privilege) & 0b11) | ((((uint16_t) table_index) & 0b1) << 2) | (((uint16_t) segment) << 3)
-    };
+    SegmentSelector ss = 0;
+    ss |= ((uint16_t) privilege) & 0b11;
+    ss |= (((uint16_t) table_index) & 0b1) << 2;
+    ss |= ((uint16_t) segment << 3);
+    return ss;
 }

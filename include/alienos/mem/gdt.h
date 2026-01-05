@@ -90,12 +90,10 @@ struct SegmentDescriptor
     uint8_t flags;
 };
 
-/* https://wiki.osdev.org/Segment_Selector */
-struct SegmentSelector
-{
-    uint16_t data;          /* Low 3 bits are used for flags, upper bits are the address of segment
-                               in GDT or LDT, which is always 8 byte aligned */
-} __attribute__((packed));
+/* Low 3 bits are used for flags, upper bits are the address of segment
+   in GDT or LDT, which is always 8 byte aligned
+   https://wiki.osdev.org/Segment_Selector */
+typedef uint16_t SegmentSelector;
 
 struct TSS
 {
@@ -115,7 +113,7 @@ struct TSS
 void gdt_init (void);
 
 /* Initialize a segment selector. Used in IDT. */
-struct SegmentSelector
+SegmentSelector
 segselector_init (enum Segment segment, enum TableIndex table_index, enum SegmentPrivilege privilege);
 
 #endif /* ALIENOS_MEM_GDT_H */
