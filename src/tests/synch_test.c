@@ -4,5 +4,6 @@
 
 void synch_test (struct UnitTestsResult * const result)
 {
-    /* TODO: add test thats spins increment shared global variable */
+    /* TODO: add test thats spins up multiple threads and increment shared global variable */
+    /* TODO: add test implementing a producer consumer buffer */
 }

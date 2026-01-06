@@ -61,7 +61,7 @@ void semaphore_down (semaphore_t * const sem)
     interrupt_restore (interrupts);
 }
 
-bool semaphore_try_down (semaphore_t *sem)
+bool semaphore_try_down (semaphore_t * const sem)
 {
     const bool interrupts = interrupt_disable ();
     bool success = false;
@@ -94,14 +94,14 @@ void semaphore_up (semaphore_t * const sem)
 }
 
 
-void mutex_init (mutex_t *mutex)
+void mutex_init (mutex_t * const mutex)
 {
     semaphore_init (&mutex->sem, 1);
     mutex->holder = NULL;
     mutex->recursion_count = 0;
 }
 
-void mutex_acquire (mutex_t *mutex)
+void mutex_acquire (mutex_t * const mutex)
 {
     const bool interrupts = interrupt_disable ();
     if (mutex->holder == current_thread)
@@ -117,7 +117,7 @@ void mutex_acquire (mutex_t *mutex)
     interrupt_restore (interrupts);
 }
 
-bool mutex_try_acquire (mutex_t *mutex)
+bool mutex_try_acquire (mutex_t * const mutex)
 {
     if (mutex->holder == current_thread)
     {
@@ -135,7 +135,7 @@ bool mutex_try_acquire (mutex_t *mutex)
     return false;
 }
 
-void mutex_release (mutex_t *mutex)
+void mutex_release (mutex_t * const mutex)
 {
     const bool interrupts = interrupt_disable ();
     kernel_assert (mutex->holder == current_thread, "mutex_release(): Owner thread must release the lock");
@@ -147,6 +147,52 @@ void mutex_release (mutex_t *mutex)
     {
         mutex->holder = NULL;
         semaphore_up (&mutex->sem);
+    }
+
+    interrupt_restore (interrupts);
+}
+
+void condvar_init (condvar_t * const condvar)
+{
+    condvar->wait_queue_head = NULL;
+    condvar->wait_queue_tail = NULL;
+}
+
+void condvar_wait (condvar_t * const cond, mutex_t * const mutex)
+{
+    const bool interrupts = interrupt_disable ();
+
+    mutex_release (mutex);
+    current_thread->status = ThreadStatus_Blocked;
+    wait_queue_append (&cond->wait_queue_head, &cond->wait_queue_tail, current_thread);
+
+    thread_yield ();
+
+    interrupt_restore (interrupts);
+    mutex_acquire (mutex);
+}
+
+void condvar_signal (condvar_t * const cond)
+{
+    const bool interrupts = interrupt_disable ();
+
+    if (cond->wait_queue_head)
+    {
+        thread_t * const wake_thread = wait_queue_popfront (&cond->wait_queue_head, &cond->wait_queue_tail);
+        thread_unblock (wake_thread);
+    }
+
+    interrupt_restore (interrupts);
+}
+
+void condvar_broadcast (condvar_t * const cond)
+{
+    const bool interrupts = interrupt_disable ();
+
+    while (cond->wait_queue_head)
+    {
+        thread_t * const wake_thread = wait_queue_popfront (&cond->wait_queue_head, &cond->wait_queue_tail);
+        thread_unblock (wake_thread);
     }
 
     interrupt_restore (interrupts);
