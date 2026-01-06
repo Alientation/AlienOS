@@ -1,16 +1,20 @@
 [ ] Internal Unit Tests
     [x] kmalloc
     [ ] Serial IO
+    [ ] Threads
+    [ ] synchronization
 [ ] External Unit Tests
     [ ] Serial IO, ensure output is sent out correctly
 [ ] Terminal scrolling
     - With dynamic memory, should be easy
 [x] Interrupt Descriptor Tables
 [ ] Interrupt handling
-    [ ] Sleep function
+    [x] Sleep function
 [ ] Threads
+    [x] Basic Kernel Multithreading
     [ ] Scheduler
     [ ] Synchronization
+        [ ] Priority/Priority Donation
 [ ] Virtual Memory
 [ ] File System
 [ ] Device Drivers

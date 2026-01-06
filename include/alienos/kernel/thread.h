@@ -33,17 +33,21 @@ typedef struct Thread
 
 extern thread_t *current_thread;
 
-/* Creates a thread and setup the thread stack. Passes arg to the entry point. */
+/* Creates a thread and setup the thread stack. Passes arg to the entry point. Synchronized internally. */
 thread_t *thread_create_arg (void (*entry_point) (void *), void *arg);
 
-/* Creates a thread and setup the thread stack. */
+/* Creates a thread and setup the thread stack. Synchronized internally. */
 thread_t *thread_create (void (*entry_point) (void));
 
-/* Initialize scheduler, creates dummy TCB for current execution flow. */
+/* Initialize scheduler, creates dummy TCB for current execution flow. Creates an idle thread to default
+   execution to. */
 void thread_main_init (void);
 
 /* Cooperatively yield execution. */
 void thread_yield (void);
+
+/* Unblock thread, ensure synchronization before calling. */
+void thread_unblock (thread_t *thread);
 
 /* Sleep thread for a number of timer ticks. */
 void thread_sleep (uint32_t ticks);
@@ -52,13 +56,13 @@ void thread_sleep (uint32_t ticks);
    and idle thread. */
 uint32_t thread_count (void);
 
-/* Count how many ready threads there are. */
+/* Count how many ready threads there are. Synchronized internally. */
 uint32_t thread_count_ready (void);
 
-/* Count how many sleeping threads there are. */
+/* Count how many sleeping threads there are. Synchronized internally. */
 uint32_t thread_count_sleeping (void);
 
-/* Count how many zombie threads there are. */
+/* Count how many zombie threads there are. Synchronized internally. */
 uint32_t thread_count_zombie (void);
 
 /* Attempt to schedule a new thread. Ensure synchronization before calling. */

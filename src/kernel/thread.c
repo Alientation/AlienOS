@@ -9,7 +9,7 @@
 #include "alienos/io/timer.h"
 
 /* Thread lists. Blocked threads will sit in a separate queue defined in the synchronization primitive. */
-static thread_t *ready_threads = NULL;
+static thread_t *ready_threads = NULL;      /* TODO: We need this list to be double ended */
 static thread_t *sleeping_threads = NULL;
 static thread_t *zombie_threads = NULL;
 
@@ -18,6 +18,7 @@ static thread_t *idle_thread = NULL;
 
 static uint32_t total_floating_threads = 0;
 
+/* Must be synchronized externally. */
 static void thread_list_add (thread_t ** const thread_list, thread_t * const thread)
 {
     if (*thread_list)
@@ -30,6 +31,7 @@ static void thread_list_add (thread_t ** const thread_list, thread_t * const thr
     *thread_list = thread;
 }
 
+/* Must be synchronized externally. */
 static void thread_list_remove (thread_t ** const thread_list, thread_t * const thread)
 {
     if (!thread->prev)
@@ -57,7 +59,7 @@ static void thread_list_remove (thread_t ** const thread_list, thread_t * const 
     thread->prev = NULL;
 }
 
-/* Synchronized (interrupt disabled since timer IRQ handles it). */
+/* Synchronized externally (interrupt disabled since timer IRQ handles it). */
 static void schedule (thread_t * const next_thread)
 {
     /* Stay on current thread. */
@@ -86,6 +88,8 @@ static void schedule (thread_t * const next_thread)
             case ThreadStatus_Zombie:
                 thread_list_add (&zombie_threads, old_thread);
                 break;
+            case ThreadStatus_Blocked:
+                break;
             default:
                 kernel_panic ("schedule(): TODO: thread %u (status=%u)",
                                 old_thread->tid, old_thread->status);
@@ -113,6 +117,7 @@ static void thread_exit (void)
     cpu_idle_loop ();
 }
 
+/* Must be synchronized externally. */
 static void clean_zombies ()
 {
     thread_t *zombie = zombie_threads;
@@ -135,6 +140,7 @@ static void clean_zombies ()
     }
 }
 
+/* Must be synchronized externally. */
 static thread_t *find_ready_thread ()
 {
     clean_zombies ();
@@ -251,6 +257,14 @@ void thread_yield (void)
 {
     /* Trigger IRQ0 to schedule new thread. */
     asm volatile ("int $0x20");
+}
+
+void thread_unblock (thread_t * const thread)
+{
+    kernel_assert (thread->status == ThreadStatus_Blocked, "thread_unblock(): Expect thread to be blocked on entry");
+
+    thread->status = ThreadStatus_Ready;
+    thread_list_add (&ready_threads, thread);
 }
 
 void thread_sleep (const uint32_t ticks)
