@@ -3,6 +3,8 @@
 
 #include "alienos/kernel/thread.h"
 
+#include <stdbool.h>
+
 typedef struct Semaphore
 {
     int32_t count;
@@ -25,6 +27,9 @@ void semaphore_init (semaphore_t *sem, int32_t initial_count);
 /* Request to claim resource, blocking if not enough. */
 void semaphore_down (semaphore_t *sem);
 
+/* Try to push down on semaphore. */
+bool semaphore_try_down (semaphore_t *sem);
+
 /* Release resource, unblocking a waiting thread if any. */
 void semaphore_up (semaphore_t *sem);
 
@@ -33,6 +38,9 @@ void mutex_init (mutex_t *mutex);
 
 /* Acquire the lock. */
 void mutex_acquire (mutex_t *mutex);
+
+/* Try to acquire the lock. */
+bool mutex_try_acquire (mutex_t *mutex);
 
 /* Release the lock. */
 void mutex_release (mutex_t *mutex);

@@ -61,6 +61,21 @@ void semaphore_down (semaphore_t * const sem)
     interrupt_restore (interrupts);
 }
 
+bool semaphore_try_down (semaphore_t *sem)
+{
+    const bool interrupts = interrupt_disable ();
+    bool success = false;
+
+    if (sem->count > 0)
+    {
+        sem->count--;
+        success = true;
+    }
+
+    interrupt_restore (interrupts);
+    return success;
+}
+
 void semaphore_up (semaphore_t * const sem)
 {
     const bool interrupts = interrupt_disable ();
@@ -95,11 +110,29 @@ void mutex_acquire (mutex_t *mutex)
         interrupt_restore (interrupts);
         return;
     }
-    interrupt_restore (interrupts);
 
     semaphore_down (&mutex->sem);
     mutex->holder = current_thread;
     mutex->recursion_count = 1;
+    interrupt_restore (interrupts);
+}
+
+bool mutex_try_acquire (mutex_t *mutex)
+{
+    if (mutex->holder == current_thread)
+    {
+        mutex->recursion_count++;
+        return true;
+    }
+
+    if (semaphore_try_down (&mutex->sem))
+    {
+        mutex->holder = current_thread;
+        mutex->recursion_count = 1;
+        return true;
+    }
+
+    return false;
 }
 
 void mutex_release (mutex_t *mutex)
