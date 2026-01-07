@@ -18,6 +18,37 @@ static thread_t *idle_thread = NULL;
 
 static uint32_t total_floating_threads = 0;
 
+/* Print threads in list. */
+static void print_threads (const thread_t *thread_list)
+{
+    if (thread_list == ready_threads)
+    {
+        printf ("ready threads: ");
+    }
+    else if (thread_list == sleeping_threads)
+    {
+        printf ("sleeping threads: ");
+    }
+    else if (thread_list == zombie_threads)
+    {
+        printf ("zombie threads: ");
+    }
+
+    printf ("[");
+    while (thread_list)
+    {
+        printf ("%u", thread_list->tid);
+        if (thread_list->next)
+        {
+            printf (", ");
+            kernel_assert (thread_list->next->prev == thread_list, "print_threads(): Failed linkage");
+        }
+
+        thread_list = thread_list->next;
+    }
+    printf ("]\n");
+}
+
 /* Must be synchronized externally. */
 static void thread_list_add (thread_t ** const thread_list, thread_t * const thread)
 {
@@ -65,6 +96,8 @@ static void schedule (thread_t * const next_thread)
     /* Stay on current thread. */
     if (current_thread == next_thread)
     {
+        kernel_assert (current_thread->status == ThreadStatus_Running,
+                       "schedule(): Expect current thread to be running if we switch back");
         return;
     }
 
@@ -102,6 +135,8 @@ static void schedule (thread_t * const next_thread)
 
     current_thread = next_thread;
     current_thread->status = ThreadStatus_Running;
+    printf ("Starting thread %u\n", current_thread->tid);
+    print_threads (ready_threads);
 
     /* Timer interrupt handler will handle switching context. */
 }
@@ -110,9 +145,9 @@ static void thread_exit (void)
 {
     interrupt_disable ();
 
-    io_serial_printf (COMPort_1, "Thread %u exiting\n", current_thread->tid);
+    printf ("Thread %u exiting\n", current_thread->tid);
     current_thread->status = ThreadStatus_Zombie;
-    scheduler_next ();
+    thread_yield ();
 
     cpu_idle_loop ();
 }
@@ -131,7 +166,7 @@ static void clean_zombies ()
         if (check != current_thread)
         {
             /* Free up space. */
-            io_serial_printf (COMPort_1, "Cleaning up Thread %u\n", check->tid);
+            printf ("Cleaning up Thread %u\n", check->tid);
             thread_list_remove (&zombie_threads, check);
             kfree (check->stack_base);
             kfree (check);
@@ -211,6 +246,8 @@ static thread_t *internal_thread_init (void (* const entry_point) (void *arg), v
     thread->next = NULL;
     thread->prev = NULL;
     total_floating_threads++;
+
+    printf ("Creating thread %u (total floating threads %u)\n", thread->tid, total_floating_threads);
     return thread;
 }
 
@@ -262,18 +299,21 @@ void thread_yield (void)
 void thread_unblock (thread_t * const thread)
 {
     kernel_assert (thread->status == ThreadStatus_Blocked, "thread_unblock(): Expect thread to be blocked on entry");
+    printf ("Unblocking thread %u\n", thread->tid);
 
     thread->status = ThreadStatus_Ready;
     thread_list_add (&ready_threads, thread);
+
+    print_threads (ready_threads);
 }
 
 void thread_sleep (const uint32_t ticks)
 {
-    io_serial_printf (COMPort_1, "Thread %u Sleep for %u ticks\n", current_thread->tid, ticks);
+    printf ("Thread %u Sleep for %u ticks\n", current_thread->tid, ticks);
     current_thread->wakeup_ticks = timer_ticks + ticks;
     current_thread->status = ThreadStatus_Sleeping;
     thread_yield ();
-    io_serial_printf (COMPort_1, "Thread %u woke up after %u ticks\n", current_thread->tid, ticks);
+    printf ("Thread %u woke up after %u ticks\n", current_thread->tid, ticks);
 }
 
 /* Synchronized because timer interrupt handler calls this (interrupt disabled). */

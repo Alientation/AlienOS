@@ -16,7 +16,6 @@
 #define READ_MODEM_STATUS 6         /* Read modem status register. */
 #define SCRATCH 7                   /* Scratch register. */
 
-
 static void internal_io_outb (const enum COMPort port, const uint16_t offset, const uint8_t val)
 {
     const uint16_t port_addr = COMPortToAddr[port] + offset;

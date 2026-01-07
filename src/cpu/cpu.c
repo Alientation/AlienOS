@@ -1,5 +1,6 @@
 #include "alienos/cpu/cpu.h"
 #include "alienos/kernel/thread.h"
+#include "alienos/io/io.h"
 
 void cpu_idle_loop (void)
 {
@@ -12,6 +13,6 @@ void cpu_idle_loop (void)
 			"cli"
 		);
 
-		scheduler_next ();
+		thread_yield ();
 	}
 }

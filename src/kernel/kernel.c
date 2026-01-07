@@ -64,7 +64,7 @@ void kernel_main(const unsigned int magic, const multiboot_info_t * const mbinfo
 
 	/* ====== INITIALIZATION DONE ====== */
 	interrupt_enable ();
-	io_serial_printf (COMPort_1, "Kernel Initialize Completed\n");
+	printf ("Kernel Initialize Completed\n");
 	terminal_printf("Welcome to AlienOS\n");
 
 	kernel_assert (interrupt_disable (), "Expect interrupts to have been enabled");
@@ -74,15 +74,15 @@ void kernel_main(const unsigned int magic, const multiboot_info_t * const mbinfo
 	unit_tests ();
 #endif
 
-	io_serial_printf (COMPort_1, "Kernel Main Thread Idling\n");
+	printf ("Kernel Main Thread Idling\n");
 	cpu_idle_loop ();
 }
 
 static void internal_kernel_panic (const char * const format, va_list params)
 {
-	io_serial_printf (COMPort_1, "KERNAL PANIC!!!\n");
+	printf ("KERNAL PANIC!!!\n");
 	io_printf (io_com1_outb, format, params);
-	io_serial_printf (COMPort_1, "\n");
+	printf ("\n");
 	cpu_halt ();
 }
 

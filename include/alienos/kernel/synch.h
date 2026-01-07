@@ -7,7 +7,8 @@
 
 typedef struct Semaphore
 {
-    int32_t count;
+    int32_t count;                          /* Stores how many resources are available if positive, otherwise
+                                               stores how many threads are waiting. */
     thread_t *wait_queue_head;              /* Singly linked list of threads that are blocked on this.
                                                Stored in FIFO order where the longest waiting threads are
                                                near the head. */

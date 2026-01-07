@@ -1,13 +1,18 @@
 #ifndef ALIENOS_TESTS_UNIT_TESTS_H
 #define ALIENOS_TESTS_UNIT_TESTS_H
 
+#include "alienos/io/io.h"
+
 #include <stdint.h>
+#include <stddef.h>
 
 struct UnitTestsResult
 {
     uint32_t total_tests;
     uint32_t failed_tests;
 };
+
+#define TEST(name) static const char *name (void)
 
 void kmalloc_test (struct UnitTestsResult *result);
 void io_test (struct UnitTestsResult *result);

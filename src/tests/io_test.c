@@ -1,5 +1,4 @@
 #include "alienos/tests/unit_tests.h"
-#include "alienos/io/io.h"
 
 
 // static void test_io (void)

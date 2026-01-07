@@ -1,23 +1,20 @@
 #include "alienos/tests/unit_tests.h"
 #include "alienos/kernel/thread.h"
-#include "alienos/io/io.h"
 #include "alienos/mem/kmalloc.h"
-
-#include <stddef.h>
 
 void thread_test_loop (void * const data)
 {
 	const uint32_t id = *((uint32_t *) data);
 	for (uint32_t i = 0; i < 3; i++)
 	{
-		io_serial_printf (COMPort_1, "Printing %u (%u)\n", id, i + 1);
+		printf ("Printing %u (%u)\n", id, i + 1);
 		thread_sleep (100);
 	}
 }
 
-static const char *test_multiple_threads (void)
+TEST(test_multiple_threads)
 {
-    io_serial_printf (COMPort_1, "\nRunning test_multiple_threads()\n");
+    printf ("\nRunning test_multiple_threads()\n");
 
     const struct KMStats stats = kmalloc_getstats ();
 
@@ -28,12 +25,12 @@ static const char *test_multiple_threads (void)
 		thread_create_arg (thread_test_loop, &threads[i]);
 	}
 
-	io_serial_printf (COMPort_1, "COUNT: %u\n", thread_count ());
+	printf ("COUNT: %u\n", thread_count ());
     if (thread_count () < 6) return "Failed: thread_create_arg()";
 
 	for (uint32_t i = 0; i < 8; i++)
 	{
-		io_serial_printf (COMPort_1, "Main Heartbeat\n");
+		printf ("Main Heartbeat\n");
 		thread_sleep (100);
 	}
 

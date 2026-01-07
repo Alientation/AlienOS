@@ -250,7 +250,7 @@ static inline bool pic_check_spurious (const uint8_t irq)
 {
     if ((irq == IRQ_SPURIOUS_MASTER || irq == IRQ_SPURIOUS_SLAVE) && !(pic_read_isr () & (1 << irq)))
     {
-        io_serial_printf (COMPort_1, "Spurious IRQ %u\n", irq);
+        printf ("Spurious IRQ %u\n", irq);
         if (irq == IRQ_SPURIOUS_SLAVE)
         {
             io_outb (PIC1_COMMAND, OCW2_EOI);
@@ -336,7 +336,7 @@ static void irq_handler (struct InterruptFrame * const frame)
 /* https://wiki.osdev.org/Interrupt_Service_Routines */
 void interrupt_handler (struct InterruptFrame * const frame)
 {
-    io_serial_printf (COMPort_1, "Interrupt %x (err: %x)\n", frame->intno, frame->errcode);
+    printf ("Interrupt %x (err: %x)\n", frame->intno, frame->errcode);
 
     switch (frame->intno)
     {
@@ -461,5 +461,5 @@ void idt_init (void)
     /* Remap PIC IRQs into the IDT. */
     pic_remap (PIC1_OFFSET, PIC2_OFFSET);
 
-    io_serial_printf (COMPort_1, "Initialized IDT\n");
+    printf ("Initialized IDT\n");
 }

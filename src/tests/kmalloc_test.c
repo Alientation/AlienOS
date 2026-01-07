@@ -1,13 +1,12 @@
 #include "alienos/tests/unit_tests.h"
 #include "alienos/mem/kmalloc.h"
 #include "alienos/kernel/kernel.h"
-#include "alienos/io/io.h"
 
 #include <string.h>
 
-static const char *test_alloc (void)
+TEST(test_alloc)
 {
-    io_serial_printf (COMPort_1, "\nRunning test_alloc()\n");
+    printf ("\nRunning test_alloc()\n");
     const struct KMStats stats = kmalloc_getstats ();
 
     void * const ptr1 = kmalloc (0);
@@ -32,7 +31,7 @@ static const char *test_alloc (void)
     for (size_t i = 0; i < sizeof (ptr3_data) / sizeof (ptr3_data[0]); i++)
         if (ptr3[i] != ptr3_data[i])
         {
-            io_serial_printf (COMPort_1, "%x,%x\n", ptr3[i], ptr3_data[i]);
+            printf ("%x,%x\n", ptr3[i], ptr3_data[i]);
             return "Failed: corrupted kmalloc(16)'s memory";
         }
     kfree (ptr3);
@@ -42,13 +41,13 @@ static const char *test_alloc (void)
     if (stats.allocation_bytes - stats.free_bytes != stats_now.allocation_bytes - stats_now.free_bytes)
         return "Failed: memory leak";
 
-    io_serial_printf (COMPort_1, "Passed test_alloc()\n");
+    printf ("Passed test_alloc()\n");
     return NULL;
 }
 
-static const char *test_calloc (void)
+TEST(test_calloc)
 {
-    io_serial_printf (COMPort_1, "\nRunning test_calloc()\n");
+    printf ("\nRunning test_calloc()\n");
 
     uint32_t * const p1 = kmalloc (16);
     const uint32_t p1_data[4] = {0xFEEDF00D, 0xF00BAD12, 0x1357ACEF, 0x02468BDE};
@@ -62,13 +61,13 @@ static const char *test_calloc (void)
 
     kfree (p2);
 
-    io_serial_printf (COMPort_1, "Passed test_calloc()\n");
+    printf ("Passed test_calloc()\n");
     return NULL;
 }
 
-static const char *test_realloc (void)
+TEST(test_realloc)
 {
-    io_serial_printf (COMPort_1, "\nRunning test_realloc()\n");
+    printf ("\nRunning test_realloc()\n");
 
     void * const p1 = kmalloc (4);
     if (!p1) return "Failed: kmalloc(4)";
@@ -91,13 +90,13 @@ static const char *test_realloc (void)
     kfree (p4);
     kfree (p5);
 
-    io_serial_printf (COMPort_1, "Passed test_realloc()\n");
+    printf ("Passed test_realloc()\n");
     return NULL;
 }
 
-static const char *test_short (void)
+TEST(test_short)
 {
-    io_serial_printf (COMPort_1, "\nRunning test_alloc()\n");
+    printf ("\nRunning test_alloc()\n");
     const struct KMStats stats = kmalloc_getstats ();
 
     uint32_t *ps[32];
@@ -155,15 +154,15 @@ static const char *test_short (void)
     return NULL;
 }
 
-static const char *test_extensive (void)
+TEST(test_extensive)
 {
     /* TODO: */
     return NULL;
 }
 
-static const char *test_free (void)
+TEST(test_free)
 {
-    io_serial_printf (COMPort_1, "\nRunning test_free()\n");
+    printf ("\nRunning test_free()\n");
     const struct KMStats stats = kmalloc_getstats ();
 
     kfree (NULL);
@@ -190,7 +189,7 @@ static const char *test_free (void)
     if (stats.allocation_bytes - stats.free_bytes != stats_now.allocation_bytes - stats_now.free_bytes)
         return "Failed: memory leak";
 
-    io_serial_printf (COMPort_1, "Passed test_free()\n");
+    printf ("Passed test_free()\n");
     return NULL;
 }
 

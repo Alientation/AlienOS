@@ -125,7 +125,7 @@ void timer_init (void)
 
     irq_clear_mask (IRQ_PIT);
 
-    io_serial_printf (COMPort_1, "Initialized timer\n");
+    printf ("Initialized timer\n");
     interrupt_restore (interrupt);
 }
 
@@ -159,7 +159,7 @@ void timer_callback ()
     static bool first_tick = true;
     if (first_tick)
     {
-        io_serial_printf (COMPort_1, "Timer Alive\n");
+        printf ("Timer Alive\n");
     }
     timer_ticks++;
     first_tick = false;

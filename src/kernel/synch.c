@@ -1,6 +1,7 @@
 #include "alienos/kernel/synch.h"
 #include "alienos/io/interrupt.h"
 #include "alienos/kernel/kernel.h"
+#include "alienos/io/io.h"
 
 #include <stddef.h>
 
@@ -8,6 +9,8 @@
 static void wait_queue_append (thread_t ** const wait_queue_head, thread_t ** const wait_queue_tail,
                                thread_t * const blocked_thread)
 {
+    printf ("Blocking thread %u\n", blocked_thread->tid);
+
     if (!*wait_queue_head)
     {
         *wait_queue_head = blocked_thread;
@@ -50,14 +53,14 @@ void semaphore_down (semaphore_t * const sem)
     const bool interrupts = interrupt_disable ();
 
     /* Block until a resource becomes available. */
-    while (sem->count <= 0)
+    sem->count--;
+    if (sem->count < 0)
     {
         current_thread->status = ThreadStatus_Blocked;
         wait_queue_append (&sem->wait_queue_head, &sem->wait_queue_tail, current_thread);
         thread_yield ();
     }
 
-    sem->count--;
     interrupt_restore (interrupts);
 }
 

@@ -179,6 +179,8 @@ void io_serial_outbool (enum COMPort port, bool b);
 /* Print format to a serial port. */
 void io_serial_printf (enum COMPort port, const char *format, ...);
 
+#define printf(...) io_serial_printf (COMPort_1, __VA_ARGS__)
+
 /* Write C string. */
 void io_writestr (void (*output_char)(char), const char *str);
 

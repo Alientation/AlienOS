@@ -65,7 +65,4 @@ uint32_t thread_count_sleeping (void);
 /* Count how many zombie threads there are. Synchronized internally. */
 uint32_t thread_count_zombie (void);
 
-/* Attempt to schedule a new thread. Ensure synchronization before calling. */
-void scheduler_next (void);
-
 #endif /* ALIENOS_KERNEL_KTHREAD_H */

@@ -2,7 +2,8 @@
     [x] kmalloc
     [ ] Serial IO
     [ ] Threads
-    [ ] synchronization
+    [ ] Synchronization
+    [ ] FEATURE: enable specific tests (perhaps by name)
 [ ] External Unit Tests
     [ ] Serial IO, ensure output is sent out correctly
 [ ] Terminal scrolling

@@ -37,7 +37,7 @@ void kmalloc_disabledebug (void)
 }
 
 #define DEBUG(...) \
-    do { if (enable_debug_print) io_serial_printf (COMPort_1, __VA_ARGS__); } while (0)
+    do { if (enable_debug_print) printf (__VA_ARGS__); } while (0)
 #else
 #define DEBUG(...) ;
 #endif
