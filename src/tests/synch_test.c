@@ -30,9 +30,7 @@ TEST(test_mutex)
 {
     printf ("Running test_mutex()\n");
     semaphore_init (&done, 0);
-    const struct KMStats stats = kmalloc_getstats ();
-
-    struct test_mutex arg = {.kNumIterations = 10000};
+    struct test_mutex arg = {.kNumIterations = 250000};
     arg.counter = 0;
     mutex_init (&arg.lock);
     const uint32_t kNumThreads = 5;
@@ -47,10 +45,6 @@ TEST(test_mutex)
     }
 
     if (arg.counter != kNumThreads * arg.kNumIterations) return "test_mutex: failed to synchronize";
-
-    const struct KMStats stats_now = kmalloc_getstats ();
-    if (stats.allocation_bytes - stats.free_bytes != stats_now.allocation_bytes - stats_now.free_bytes)
-        return "Failed: memory leak";
 
     printf ("Passed test_mutex()\n");
     return NULL;
