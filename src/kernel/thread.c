@@ -135,8 +135,6 @@ static void schedule (thread_t * const next_thread)
 
     current_thread = next_thread;
     current_thread->status = ThreadStatus_Running;
-    printf ("Starting thread %u\n", current_thread->tid);
-    print_threads (ready_threads);
 
     /* Timer interrupt handler will handle switching context. */
 }
@@ -299,12 +297,9 @@ void thread_yield (void)
 void thread_unblock (thread_t * const thread)
 {
     kernel_assert (thread->status == ThreadStatus_Blocked, "thread_unblock(): Expect thread to be blocked on entry");
-    printf ("Unblocking thread %u\n", thread->tid);
 
     thread->status = ThreadStatus_Ready;
     thread_list_add (&ready_threads, thread);
-
-    print_threads (ready_threads);
 }
 
 void thread_sleep (const uint32_t ticks)

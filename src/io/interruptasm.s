@@ -103,7 +103,8 @@ isr_wrapper:
 .size isr_wrapper, . - isr_wrapper
 
 
-/* Handle Timer interrupt (IRQ0). */
+/* Handle Timer interrupt (IRQ0).
+   TODO: have separate fake software triggered timer interrupt so we dont send an EOI. */
 .global isr_IRQ0
 .type isr_IRQ0, @function
 .extern scheduler_next

@@ -9,8 +9,6 @@
 static void wait_queue_append (thread_t ** const wait_queue_head, thread_t ** const wait_queue_tail,
                                thread_t * const blocked_thread)
 {
-    printf ("Blocking thread %u\n", blocked_thread->tid);
-
     if (!*wait_queue_head)
     {
         *wait_queue_head = blocked_thread;

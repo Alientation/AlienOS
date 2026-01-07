@@ -18,11 +18,7 @@ static void test_mutex_worker (void * const data)
     volatile uint32_t * const counter = &arg->counter;
     for (uint32_t i = 0; i < arg->kNumIterations; i++)
     {
-        // if (!mutex_try_acquire (&arg->lock))
-        // {
-            // printf ("Thread %u waiting to acquire lock\n", current_thread->tid);
         mutex_acquire (&arg->lock);
-        // }
         (*counter)++;
         mutex_release (&arg->lock);
     }
@@ -36,7 +32,7 @@ TEST(test_mutex)
     semaphore_init (&done, 0);
     const struct KMStats stats = kmalloc_getstats ();
 
-    struct test_mutex arg = {.kNumIterations = 10};
+    struct test_mutex arg = {.kNumIterations = 10000};
     arg.counter = 0;
     mutex_init (&arg.lock);
     const uint32_t kNumThreads = 5;
@@ -125,8 +121,7 @@ TEST(test_condvar)
 void synch_test (struct UnitTestsResult * const result)
 {
     kmalloc_disabledebug ();
-    /* TODO: add test implementing a producer consumer buffer */
-    // run_test (test_mutex, result);
+    run_test (test_mutex, result);
     run_test (test_semaphore, result);
     run_test (test_condvar, result);
 }
