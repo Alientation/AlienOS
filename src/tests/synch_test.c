@@ -3,6 +3,7 @@
 #include "alienos/mem/kmalloc.h"
 #include "alienos/kernel/kernel.h"
 
+static semaphore_t start;
 static semaphore_t done;
 
 struct test_mutex
@@ -71,6 +72,21 @@ TEST(test_mutex_many_iters)
     if (arg.counter != kNumThreads * arg.kNumIterations) return "Failed: counter off, not synchronized";
 
     printf ("Passed test_mutex_many_iters()\n");
+    return NULL;
+}
+
+TEST (test_mutex_recursive)
+{
+    printf ("\nRunning test_mutex_recursive()\n");
+    mutex_t lock;
+    mutex_init (&lock);
+    mutex_acquire (&lock);
+    mutex_acquire (&lock);
+
+    mutex_release (&lock);
+    mutex_release (&lock);
+
+    printf ("Passed test_mutex_recursive()\n");
     return NULL;
 }
 
@@ -191,9 +207,9 @@ static void test_condvar_consumer (void * const arg)
     semaphore_up (&done);
 }
 
-TEST(test_condvar)
+TEST(test_condvar_producer_consumer)
 {
-    printf ("\nRunning test_condvar()\n");
+    printf ("\nRunning test_condvar_producer_consumer()\n");
 
     struct test_condvar args = {.kNumIterations = 20};
     args.head = 0;
@@ -210,7 +226,54 @@ TEST(test_condvar)
     semaphore_down (&done);
     semaphore_down (&done);
 
-    printf ("Passed test_condvar()\n");
+    printf ("Passed test_condvar_producer_consumer()\n");
+    return NULL;
+}
+
+static void test_broadcast_worker (void * const arg)
+{
+    struct test_condvar * const data = (struct test_condvar *) arg;
+    mutex_acquire (&data->lock);
+    while (data->size == 0)
+    {
+        semaphore_up (&start);
+        condvar_wait (&data->not_empty, &data->lock);
+    }
+    mutex_release (&data->lock);
+    semaphore_up (&done);
+}
+
+TEST(test_condvar_broadcast)
+{
+    printf ("\nRunning test_condvar_broadcast()\n");
+    struct test_condvar args = {.size = 0};
+    mutex_init (&args.lock);
+    condvar_init (&args.not_empty);
+    semaphore_init (&done, 0);
+    semaphore_init (&start, 0);
+
+    const uint32_t kNumThreads = 10;
+    for (uint32_t i = 0; i < kNumThreads; i++)
+    {
+        thread_create_arg (test_broadcast_worker, &args);
+    }
+
+    for (uint32_t i = 0; i < kNumThreads; i++)
+    {
+        semaphore_down (&start);
+    }
+
+    mutex_acquire (&args.lock);
+    args.size = 1;
+    condvar_broadcast (&args.not_empty);
+    mutex_release (&args.lock);
+
+    for (uint32_t i = 0; i < kNumThreads; i++)
+    {
+        semaphore_down (&done);
+    }
+
+    printf ("Passed test_condvar_broadcast()\n");
     return NULL;
 }
 
@@ -219,6 +282,8 @@ void synch_test (struct UnitTestsResult * const result)
     kmalloc_disabledebug ();
     run_test (test_mutex_many_iters, result);
     run_test (test_mutex_many_threads, result);
+    run_test (test_mutex_recursive, result);
     run_test (test_semaphore_producer_consumer, result);
-    run_test (test_condvar, result);
+    run_test (test_condvar_producer_consumer, result);
+    run_test (test_condvar_broadcast, result);
 }
