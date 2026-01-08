@@ -151,6 +151,7 @@ TEST(test_short)
     const struct KMStats stats_now = kmalloc_getstats ();
     if (stats.allocation_bytes - stats.free_bytes != stats_now.allocation_bytes - stats_now.free_bytes)
         return "Failed: memory leak";
+    printf ("Passed test_short()\n");
     return NULL;
 }
 

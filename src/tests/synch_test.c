@@ -26,9 +26,33 @@ static void test_mutex_worker (void * const data)
     semaphore_up (&done);
 }
 
-TEST(test_mutex)
+TEST(test_mutex_many_threads)
 {
-    printf ("Running test_mutex()\n");
+    printf ("\nRunning test_mutex_many_threads()\n");
+    semaphore_init (&done, 0);
+    struct test_mutex arg = {.kNumIterations = 5000};
+    arg.counter = 0;
+    mutex_init (&arg.lock);
+    const uint32_t kNumThreads = 50;
+    for (uint32_t i = 0; i < kNumThreads; i++)
+    {
+        thread_create_arg (test_mutex_worker, &arg);
+    }
+
+    for (uint32_t i = 0; i < kNumThreads; i++)
+    {
+        semaphore_down (&done);
+    }
+
+    if (arg.counter != kNumThreads * arg.kNumIterations) return "Failed: counter off, not synchronized";
+
+    printf ("Passed test_mutex_many_threads()\n");
+    return NULL;
+}
+
+TEST(test_mutex_many_iters)
+{
+    printf ("\nRunning test_mutex_many_iters()\n");
     semaphore_init (&done, 0);
     struct test_mutex arg = {.kNumIterations = 100000};
     arg.counter = 0;
@@ -44,9 +68,9 @@ TEST(test_mutex)
         semaphore_down (&done);
     }
 
-    if (arg.counter != kNumThreads * arg.kNumIterations) return "test_mutex: failed to synchronize";
+    if (arg.counter != kNumThreads * arg.kNumIterations) return "Failed: counter off, not synchronized";
 
-    printf ("Passed test_mutex()\n");
+    printf ("Passed test_mutex_many_iters()\n");
     return NULL;
 }
 
@@ -77,16 +101,16 @@ static void test_semaphore_consumer (void * const arg)
     for (uint32_t i = 1; i <= data->kNumIterations; i++)
     {
         semaphore_down (&data->sema_consume);
-        kernel_assert (data->shared_value == i, "test_semaphore(): Consumer received incorrect value %u, expected %u",
+        kernel_assert (data->shared_value == i, "Failed: consumer received incorrect value %u, expected %u",
                        data->shared_value, i);
         semaphore_up (&data->sema_produce);
     }
     semaphore_up (&done);
 }
 
-TEST(test_semaphore)
+TEST(test_semaphore_producer_consumer)
 {
-    printf ("Running test_semaphore()\n");
+    printf ("\nRunning test_semaphore_producer_consumer()\n");
 
     semaphore_init (&done, 0);
     struct test_semaphore args = {.kNumIterations = 5};
@@ -101,7 +125,7 @@ TEST(test_semaphore)
     semaphore_down (&done);
     semaphore_down (&done);
 
-    printf ("Passed test_semaphore()\n");
+    printf ("Passed test_semaphore_producer_consumer()\n");
     return NULL;
 }
 
@@ -135,8 +159,6 @@ static void test_condvar_producer (void * const arg)
         data->head = (data->head + 1) % TEST_CONDVAR_BUFFER_SIZE;
         data->size++;
 
-        printf ("Produced: %u\n", i);
-
         condvar_signal (&data->not_empty);
 
         mutex_release (&data->lock);
@@ -161,8 +183,7 @@ static void test_condvar_consumer (void * const arg)
         data->tail = (data->tail + 1) % TEST_CONDVAR_BUFFER_SIZE;
         data->size--;
 
-        printf ("Consumed %u\n", val);
-        kernel_assert (val == i, "test_condvar(): Failed synchronization");
+        kernel_assert (val == i, "Failed: consumer expected to receive %u but got %u", i, val);
 
         condvar_signal (&data->not_full);
         mutex_release (&data->lock);
@@ -172,7 +193,7 @@ static void test_condvar_consumer (void * const arg)
 
 TEST(test_condvar)
 {
-    printf ("Running test_condvar()\n");
+    printf ("\nRunning test_condvar()\n");
 
     struct test_condvar args = {.kNumIterations = 20};
     args.head = 0;
@@ -196,7 +217,8 @@ TEST(test_condvar)
 void synch_test (struct UnitTestsResult * const result)
 {
     kmalloc_disabledebug ();
-    run_test (test_mutex, result);
-    run_test (test_semaphore, result);
+    run_test (test_mutex_many_iters, result);
+    run_test (test_mutex_many_threads, result);
+    run_test (test_semaphore_producer_consumer, result);
     run_test (test_condvar, result);
 }

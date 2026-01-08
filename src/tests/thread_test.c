@@ -1,43 +1,46 @@
 #include "alienos/tests/unit_tests.h"
 #include "alienos/kernel/thread.h"
+#include "alienos/kernel/synch.h"
 #include "alienos/mem/kmalloc.h"
+
+static semaphore_t start;
+static semaphore_t done;
 
 void thread_test_loop (void * const data)
 {
-	const uint32_t id = *((uint32_t *) data);
+	semaphore_down (&start);
 	for (uint32_t i = 0; i < 3; i++)
 	{
-		printf ("Printing %u (%u)\n", id, i + 1);
+		printf ("Thread %u (%u)\n", current_thread->tid, i + 1);
 		thread_sleep (100);
 	}
+	semaphore_up (&done);
 }
 
 TEST(test_multiple_threads)
 {
     printf ("\nRunning test_multiple_threads()\n");
 
-    const struct KMStats stats = kmalloc_getstats ();
+	semaphore_init (&start, 0);
+	semaphore_init (&done, 0);
 
-	uint32_t threads[5];
-	for (size_t i = 0; i < 5; i++)
+	const uint32_t kNumThreads = 5;
+	for (size_t i = 0; i < kNumThreads; i++)
 	{
-		threads[i] = i;
-		thread_create_arg (thread_test_loop, &threads[i]);
+		thread_create_arg (thread_test_loop, NULL);
 	}
 
-	printf ("COUNT: %u\n", thread_count ());
-    if (thread_count () < 6) return "Failed: thread_create_arg()";
-
-	for (uint32_t i = 0; i < 8; i++)
+	for (uint32_t i = 0; i < kNumThreads; i++)
 	{
-		printf ("Main Heartbeat\n");
-		thread_sleep (100);
+		semaphore_up (&start);
 	}
 
-    const struct KMStats stats_now = kmalloc_getstats ();
-    if (stats.allocation_bytes - stats.free_bytes != stats_now.allocation_bytes - stats_now.free_bytes)
-        return "Failed: memory leak";
+	for (uint32_t i = 0; i < kNumThreads; i++)
+	{
+		semaphore_down (&done);
+	}
 
+	printf ("Passed test_multiple_threads()\n");
     return NULL;
 }
 

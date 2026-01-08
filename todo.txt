@@ -1,8 +1,8 @@
 [ ] Internal Unit Tests
     [x] kmalloc
     [ ] Serial IO
-    [ ] Threads
-    [ ] Synchronization
+    [x] Threads
+    [x] Synchronization
     [ ] FEATURE: enable specific tests (perhaps by name)
 [ ] External Unit Tests
     [ ] Serial IO, ensure output is sent out correctly
@@ -15,6 +15,7 @@
     [x] Basic Kernel Multithreading
     [ ] Scheduler
     [ ] Synchronization
+        [x] Primitives
         [ ] Priority/Priority Donation
 [ ] Virtual Memory
 [ ] File System
