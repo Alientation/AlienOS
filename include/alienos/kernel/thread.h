@@ -6,6 +6,13 @@
 #define THREAD_STACK_SPACE (1 << 14)
 
 typedef uint32_t tid_t;
+struct Thread;
+
+typedef struct ThreadListNode {
+    struct Thread *thread;
+    struct ThreadListNode *next;
+    struct ThreadListNode *prev;
+} tlistnode_t;
 
 typedef struct Thread
 {
@@ -36,15 +43,11 @@ typedef struct Thread
     } blocker_type;                 /* Type of synchronization primitive this thread is blocked on */
     void *blocked_on;               /* Pointer to synchronization primitive this thread is blocked on */
 
-    struct ThreadListNode {
-        struct Thread *thread;
-        struct ThreadListNode *next;
-        struct ThreadListNode *prev;
-    } all_list, local_list;         /* Various lists this thread can be a part of. all_list contains all allocated threads,
-                                       local_list is used for various uses like ready, blocked, sleeping, zombie queues. */
+    /* Various lists this thread can be a part of. all_list contains all allocated threads,
+       local_list is used for various uses like ready, blocked, sleeping, zombie queues. */
+    tlistnode_t all_list;
+    tlistnode_t local_list;
 } thread_t;
-
-typedef struct ThreadListNode tlistnode_t;
 
 extern thread_t *current_thread;
 
@@ -58,7 +61,8 @@ thread_t *thread_create (void (*entry_point) (void));
    execution to. */
 void thread_main_init (void);
 
-/* Cooperatively yield execution. */
+/* Cooperatively yield execution. Interrupts MUST be enabled if you have acquired any
+   locks or synchronization primitives otherwise deadlocks could occur. */
 void thread_yield (void);
 
 /* Unblock thread, ensure synchronization before calling. */
@@ -68,7 +72,7 @@ void thread_unblock (thread_t *thread);
 void thread_sleep (uint32_t ticks);
 
 /* Count how many threads there are including zombie, blocked, and sleeping threads. Includes main thread
-   and idle thread. */
+   and idle thread. TODO: make O(1) */
 uint32_t thread_count (void);
 
 /* Count how many ready threads there are. Synchronized internally. TODO: make O(1). */
@@ -81,7 +85,7 @@ uint32_t thread_count_sleeping (void);
 uint32_t thread_count_zombie (void);
 
 /* Get thread by tid. */
-thread_t *thread_get (tid_t tid);
+thread_t *thread_get_by_tid (tid_t tid);
 
 /* Debug thread blocker dependencies. */
 void thread_debug_synch_dependencies ();
