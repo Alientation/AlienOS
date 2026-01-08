@@ -34,12 +34,14 @@ TEST(test_mutex_many_threads)
     struct test_mutex arg = {.kNumIterations = 5000};
     arg.counter = 0;
     mutex_init (&arg.lock);
+
     const uint32_t kNumThreads = 50;
     for (uint32_t i = 0; i < kNumThreads; i++)
     {
         thread_create_arg (test_mutex_worker, &arg);
     }
 
+    /* Wait for all workers to finish. */
     for (uint32_t i = 0; i < kNumThreads; i++)
     {
         semaphore_down (&done);
@@ -58,12 +60,14 @@ TEST(test_mutex_many_iters)
     struct test_mutex arg = {.kNumIterations = 100000};
     arg.counter = 0;
     mutex_init (&arg.lock);
+
     const uint32_t kNumThreads = 5;
     for (uint32_t i = 0; i < kNumThreads; i++)
     {
         thread_create_arg (test_mutex_worker, &arg);
     }
 
+    /* Wait for all workers to finish. */
     for (uint32_t i = 0; i < kNumThreads; i++)
     {
         semaphore_down (&done);
@@ -142,6 +146,69 @@ TEST(test_semaphore_producer_consumer)
     semaphore_down (&done);
 
     printf ("Passed test_semaphore_producer_consumer()\n");
+    return NULL;
+}
+
+struct test_semaphore_multiplex
+{
+    uint32_t active_threads;
+    uint32_t max_seen_threads;
+    semaphore_t sem;
+    mutex_t lock;
+};
+
+static void test_semaphore_multiplex_worker (void * const arg)
+{
+    struct test_semaphore_multiplex * const data = (struct test_semaphore_multiplex *) arg;
+
+    /* Critical section, only allow a specific number of threads through. */
+    semaphore_down (&data->sem);
+
+    /* To ensure atomicity of these operations. */
+    mutex_acquire (&data->lock);
+    data->active_threads++;
+    if (data->active_threads > data->max_seen_threads)
+    {
+        data->max_seen_threads = data->active_threads;
+    }
+    mutex_release (&data->lock);
+
+    /* Try to allow other threads to enter. */
+    thread_yield ();
+    mutex_acquire (&data->lock);
+    data->active_threads--;
+    mutex_release (&data->lock);
+
+    /* End of critical section. */
+    semaphore_up (&data->sem);
+
+    /* Indicate we are done. */
+    semaphore_up (&done);
+}
+
+TEST (test_semaphore_multiplex)
+{
+    printf ("\nRunning test_semaphore_multiplex()\n");
+    const uint32_t kMaxConcurrentThreads = 3;
+    const uint32_t kNumThreads = 100;
+    semaphore_init (&done, 0);
+
+    struct test_semaphore_multiplex args = {.active_threads = 0, .max_seen_threads = 0};
+    semaphore_init (&args.sem, kMaxConcurrentThreads);
+    mutex_init (&args.lock);
+
+    for (uint32_t i = 0; i < kNumThreads; i++)
+    {
+        thread_create_arg (test_semaphore_multiplex_worker, &args);
+    }
+
+    /* Wait for all workers to finish. */
+    for (uint32_t i = 0; i < kNumThreads; i++)
+    {
+        semaphore_down (&done);
+    }
+
+    printf ("Passed test_semaphore_multiplex()\n");
     return NULL;
 }
 
@@ -284,6 +351,7 @@ void synch_test (struct UnitTestsResult * const result)
     run_test (test_mutex_many_threads, result);
     run_test (test_mutex_recursive, result);
     run_test (test_semaphore_producer_consumer, result);
+    run_test (test_semaphore_multiplex, result);
     run_test (test_condvar_producer_consumer, result);
     run_test (test_condvar_broadcast, result);
 }
