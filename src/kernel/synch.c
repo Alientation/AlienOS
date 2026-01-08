@@ -163,9 +163,9 @@ void condvar_wait (condvar_t * const cond, mutex_t * const mutex)
 {
     const bool interrupts = interrupt_disable ();
 
-    mutex_release (mutex);
     current_thread->status = ThreadStatus_Blocked;
     wait_queue_append (&cond->wait_queue_head, &cond->wait_queue_tail, current_thread);
+    mutex_release (mutex);
 
     thread_yield ();
 

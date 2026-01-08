@@ -23,7 +23,6 @@ static uint32_t kheap_begin;
 static uint32_t kheap_end;
 static uint32_t kheap_max_end;
 
-#ifdef ALIENOS_TEST
 static bool enable_debug_print = true;
 
 void kmalloc_enabledebug (void)
@@ -36,6 +35,7 @@ void kmalloc_disabledebug (void)
     enable_debug_print = false;
 }
 
+#ifdef ALIENOS_TEST
 #define DEBUG(...) \
     do { if (enable_debug_print) printf (__VA_ARGS__); } while (0)
 #else

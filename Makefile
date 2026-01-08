@@ -69,6 +69,8 @@ iso/alienos.iso: iso/alienos.bin | build/isodir/boot/grub
 # Start QEMU
 qemu: all
 	qemu-system-i386 -cdrom iso/alienos.iso -serial stdio
+#	-accel kvm -cpu max
+# REQUIRES WSL2 + WINDOWS 11
 
 clean:
 	rm -rf build iso/alienos.bin iso/alienos.iso
