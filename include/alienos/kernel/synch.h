@@ -9,10 +9,10 @@ typedef struct Semaphore
 {
     int32_t count;                          /* Stores how many resources are available if positive, otherwise
                                                stores how many threads are waiting. */
-    thread_t *wait_queue_head;              /* Singly linked list of threads that are blocked on this.
+    tlistnode_t *wait_queue_head;              /* Singly linked list of threads that are blocked on this.
                                                Stored in FIFO order where the longest waiting threads are
                                                near the head. */
-    thread_t *wait_queue_tail;              /* Tail of the singly linked list */
+    tlistnode_t *wait_queue_tail;              /* Tail of the singly linked list */
 } semaphore_t;
 
 /* Lock
@@ -41,10 +41,10 @@ typedef struct Mutex
 */
 typedef struct ConditionVariable
 {
-    thread_t *wait_queue_head;              /* Singly linked list of threads waiting to be signaled.
+    tlistnode_t *wait_queue_head;              /* Singly linked list of threads waiting to be signaled.
                                                Stored in FIFO order where longest waiting threads are near
                                                the head. */
-    thread_t *wait_queue_tail;              /* Tail of the singly linked list */
+    tlistnode_t *wait_queue_tail;              /* Tail of the singly linked list */
 } condvar_t;
 
 /* Initialize sempahore. */

@@ -6,37 +6,37 @@
 #include <stddef.h>
 
 /* Must be synchronized externally. */
-static void wait_queue_append (thread_t ** const wait_queue_head, thread_t ** const wait_queue_tail,
-                               thread_t * const blocked_thread)
+static void wait_queue_append (tlistnode_t ** const head, tlistnode_t ** const tail,
+                               tlistnode_t * const thread)
 {
-    if (!*wait_queue_head)
+    if (!*head)
     {
-        *wait_queue_head = blocked_thread;
-        *wait_queue_tail = blocked_thread;
-        blocked_thread->next = NULL;
-        blocked_thread->prev = NULL;
+        *head = thread;
+        *tail = thread;
+        thread->next = NULL;
+        thread->prev = NULL;
         return;
     }
 
-    (*wait_queue_tail)->next = blocked_thread;
-    blocked_thread->next = NULL;
-    blocked_thread->prev = *wait_queue_tail;
-    *wait_queue_tail = blocked_thread;
+    (*tail)->next = thread;
+    thread->next = NULL;
+    thread->prev = *tail;
+    *tail = thread;
 }
 
 /* Must be synchronized externally. */
-static thread_t *wait_queue_popfront (thread_t ** const wait_queue_head, thread_t ** const wait_queue_tail)
+static thread_t *wait_queue_popfront (tlistnode_t ** const head, tlistnode_t ** const tail)
 {
-    kernel_assert (*wait_queue_head, "wait_queue_popfront(): Expected nonempty lists");
+    kernel_assert (*head, "wait_queue_popfront(): Expected nonempty lists");
 
-    thread_t * const unblocked_thread = *wait_queue_head;
-    *wait_queue_head = (*wait_queue_head)->next;
-    if (!*wait_queue_head)
+    tlistnode_t * const unblocked = *head;
+    *head = (*head)->next;
+    if (!*head)
     {
-        *wait_queue_tail = NULL;
+        *tail = NULL;
     }
-    unblocked_thread->next = NULL;
-    return unblocked_thread;
+    unblocked->next = NULL;
+    return unblocked->thread;
 }
 
 void semaphore_init (semaphore_t * const sem, const int32_t initial_count)
@@ -55,7 +55,15 @@ void semaphore_down (semaphore_t * const sem)
     if (sem->count < 0)
     {
         current_thread->status = ThreadStatus_Blocked;
-        wait_queue_append (&sem->wait_queue_head, &sem->wait_queue_tail, current_thread);
+
+        /* If this thread blocks on a mutex, we don't want to overwrite. */
+        if (current_thread->blocker_type == BlockerType_None)
+        {
+            current_thread->blocked_on = sem;
+            current_thread->blocker_type = BlockerType_Semaphore;
+        }
+
+        wait_queue_append (&sem->wait_queue_head, &sem->wait_queue_tail, &current_thread->local_list);
         thread_yield ();
     }
 
@@ -111,6 +119,11 @@ void mutex_acquire (mutex_t * const mutex)
         interrupt_restore (interrupts);
         return;
     }
+    else
+    {
+        current_thread->blocked_on = mutex;
+        current_thread->blocker_type = BlockerType_Mutex;
+    }
 
     semaphore_down (&mutex->sem);
     mutex->holder = current_thread;
@@ -164,7 +177,9 @@ void condvar_wait (condvar_t * const cond, mutex_t * const mutex)
     const bool interrupts = interrupt_disable ();
 
     current_thread->status = ThreadStatus_Blocked;
-    wait_queue_append (&cond->wait_queue_head, &cond->wait_queue_tail, current_thread);
+    current_thread->blocked_on = cond;
+    current_thread->blocker_type = BlockerType_CondVar;
+    wait_queue_append (&cond->wait_queue_head, &cond->wait_queue_tail, &current_thread->local_list);
     mutex_release (mutex);
 
     thread_yield ();

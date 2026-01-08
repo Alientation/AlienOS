@@ -7,87 +7,98 @@
 #include "alienos/cpu/cpu.h"
 #include "alienos/io/io.h"
 #include "alienos/io/timer.h"
+#include "alienos/kernel/synch.h"
+
+/* All allocated threads will sit here until deallocated when cleaned up. */
+static tlistnode_t *all_threads = NULL;
 
 /* Thread lists. Blocked threads will sit in a separate queue defined in the synchronization primitive. */
-static thread_t *ready_threads = NULL;      /* TODO: We need this list to be double ended */
-static thread_t *sleeping_threads = NULL;
-static thread_t *zombie_threads = NULL;
+static tlistnode_t  *ready_threads = NULL;      /* TODO: We need this list to be double ended */
+static tlistnode_t *sleeping_threads = NULL;
+static tlistnode_t *zombie_threads = NULL;
 
 thread_t *current_thread = NULL;
 static thread_t *idle_thread = NULL;
 
-static uint32_t total_floating_threads = 0;
-
 /* Print threads in list. */
-static void print_threads (const thread_t *thread_list)
+static void print_threads (const tlistnode_t *head)
 {
-    if (thread_list == ready_threads)
+    if (head == ready_threads)
     {
         printf ("ready threads: ");
     }
-    else if (thread_list == sleeping_threads)
+    else if (head == sleeping_threads)
     {
         printf ("sleeping threads: ");
     }
-    else if (thread_list == zombie_threads)
+    else if (head == zombie_threads)
     {
         printf ("zombie threads: ");
     }
 
     printf ("[");
-    while (thread_list)
+    while (head)
     {
-        printf ("%u", thread_list->tid);
-        if (thread_list->next)
+        printf ("%u", head->thread->tid);
+        if (head->next)
         {
             printf (", ");
-            kernel_assert (thread_list->next->prev == thread_list, "print_threads(): Failed linkage");
+            kernel_assert (head->next->prev == head, "print_threads(): Failed linkage");
         }
 
-        thread_list = thread_list->next;
+        head = head->next;
     }
     printf ("]\n");
 }
 
-/* Must be synchronized externally. */
-static void thread_list_add (thread_t ** const thread_list, thread_t * const thread)
+static void thread_listnode_init (tlistnode_t *node, thread_t *thread)
 {
-    if (*thread_list)
+    node->next = NULL;
+    node->prev = NULL;
+    node->thread = thread;
+}
+
+/* TODO: add some add to front/end, remove front/end helper functions. */
+
+/* Must be synchronized externally. */
+static void thread_list_add (tlistnode_t ** const head, tlistnode_t * const node)
+{
+    if (*head)
     {
-        (*thread_list)->prev = thread;
+        (*head)->prev = node;
     }
 
-    thread->next = *thread_list;
-    thread->prev = NULL;
-    *thread_list = thread;
+    node->next = *head;
+    node->prev = NULL;
+    *head = node;
 }
 
 /* Must be synchronized externally. */
-static void thread_list_remove (thread_t ** const thread_list, thread_t * const thread)
+static void thread_list_remove (tlistnode_t ** const head, tlistnode_t * const node)
 {
-    if (!thread->prev)
+    if (!node->prev)
     {
-        kernel_assert (*thread_list == thread,
+        kernel_assert (*head == node,
                        "thread_list_remove(): Expected thread without prev pointer to be head of list");
 
-        *thread_list = thread->next;
-        if (*thread_list)
+        *head = node->next;
+        if (*head)
         {
-            (*thread_list)->prev = NULL;
+            (*head)->prev = NULL;
         }
     }
     else
     {
-        thread->prev->next = thread->next;
+        node->prev->next = node->next;
     }
 
-    if (thread->next)
+    if (node->next)
     {
-        thread->next->prev = thread->prev;
+        node->next->prev = node->prev;
     }
 
-    thread->next = NULL;
-    thread->prev = NULL;
+    node->next = NULL;
+    node->prev = NULL;
 }
 
 /* Synchronized externally (interrupt disabled since timer IRQ handles it). */
@@ -113,13 +124,13 @@ static void schedule (thread_t * const next_thread)
         {
             case ThreadStatus_Running:
                 old_thread->status = ThreadStatus_Ready;
-                thread_list_add (&ready_threads, old_thread);
+                thread_list_add (&ready_threads, &old_thread->local_list);
                 break;
             case ThreadStatus_Sleeping:
-                thread_list_add (&sleeping_threads, old_thread);
+                thread_list_add (&sleeping_threads, &old_thread->local_list);
                 break;
             case ThreadStatus_Zombie:
-                thread_list_add (&zombie_threads, old_thread);
+                thread_list_add (&zombie_threads, &old_thread->local_list);
                 break;
             case ThreadStatus_Blocked:
                 break;
@@ -153,22 +164,23 @@ static void thread_exit (void)
 /* Must be synchronized externally. */
 static void clean_zombies ()
 {
-    thread_t *zombie = zombie_threads;
+    tlistnode_t *zombie = zombie_threads;
     while (zombie)
     {
-        thread_t * const check = zombie;
+        thread_t * const thread = zombie->thread;
         zombie = zombie->next;
-        kernel_assert (check->status == ThreadStatus_Zombie,
-                       "find_ready_thread(): Expected thread in zombie list to be a zombie thread");
+        kernel_assert (thread->status == ThreadStatus_Zombie,
+                       "clean_zombies(): Expected thread in zombie list to be a zombie thread");
+        kernel_assert (thread != idle_thread, "clean_zombies(): trying to deallocate the idle thread");
 
-        if (check != current_thread)
+        if (thread != current_thread)
         {
             /* Free up space. */
-            printf ("Cleaning up Thread %u\n", check->tid);
-            thread_list_remove (&zombie_threads, check);
-            kfree (check->stack_base);
-            kfree (check);
-            total_floating_threads--;
+            printf ("Cleaning up Thread %u\n", thread->tid);
+            thread_list_remove (&zombie_threads, &thread->local_list);
+            thread_list_remove (&all_threads, &thread->all_list);
+            kfree (thread->stack_base);
+            kfree (thread);
         }
     }
 }
@@ -183,7 +195,7 @@ static thread_t *find_ready_thread ()
         return (current_thread->status == ThreadStatus_Running) ? current_thread : idle_thread;
     }
 
-    thread_t *ready = ready_threads;
+    tlistnode_t *ready = ready_threads;
     while (ready->next)
     {
         kernel_assert (ready->next->prev == ready, "find_ready_thread(): linked list broken");
@@ -191,7 +203,7 @@ static thread_t *find_ready_thread ()
     }
 
     thread_list_remove (&ready_threads, ready);
-    return ready;
+    return ready->thread;
 }
 
 static thread_t *internal_thread_init (void (* const entry_point) (void *arg), void * const arg)
@@ -241,11 +253,14 @@ static thread_t *internal_thread_init (void (* const entry_point) (void *arg), v
     thread->status = ThreadStatus_Ready;
     thread->stack_base = stack_base;
     thread->wakeup_ticks = 0;
-    thread->next = NULL;
-    thread->prev = NULL;
-    total_floating_threads++;
+    thread->blocked_on = NULL;
+    thread->blocker_type = BlockerType_None;
+    thread_listnode_init (&thread->all_list, thread);
+    thread_listnode_init (&thread->local_list, thread);
 
-    printf ("Creating thread %u (total floating threads %u)\n", thread->tid, total_floating_threads);
+    thread_list_add (&all_threads, &thread->all_list);
+
+    printf ("Creating thread %u\n", thread->tid);
     return thread;
 }
 
@@ -256,15 +271,20 @@ void thread_main_init (void)
 
     main_thread->tid = 0;
     main_thread->status = ThreadStatus_Running;
-    main_thread->next = NULL;
-    main_thread->prev = NULL;
+    main_thread->blocked_on = NULL;
+    main_thread->blocker_type = BlockerType_None;
+    main_thread->wakeup_ticks = 0;
+
+    thread_listnode_init (&main_thread->all_list, main_thread);
+    thread_listnode_init (&main_thread->local_list, main_thread);
+
+    thread_list_add (&all_threads, &main_thread->all_list);
 
     current_thread = main_thread;
-
-    /* One for current thread and another for idle thread. */
-    total_floating_threads = 2;
+    kernel_assert (current_thread->tid == 0, "thread_main_init(): expect main thread to have tid 0");
 
     idle_thread = internal_thread_init ((void (*)(void *)) cpu_idle_loop, NULL);
+    kernel_assert (idle_thread->tid == 1, "thread_main_init(): expect idle thread to have tid 1");
 }
 
 void scheduler_next (void)
@@ -277,7 +297,7 @@ thread_t *thread_create_arg (void (* const entry_point) (void *), void * const a
     thread_t * const thread = internal_thread_init (entry_point, arg);
 
     const bool interrupts = interrupt_disable ();
-    thread_list_add (&ready_threads, thread);
+    thread_list_add (&ready_threads, &thread->local_list);
     interrupt_restore (interrupts);
 
     return thread;
@@ -299,7 +319,9 @@ void thread_unblock (thread_t * const thread)
     kernel_assert (thread->status == ThreadStatus_Blocked, "thread_unblock(): Expect thread to be blocked on entry");
 
     thread->status = ThreadStatus_Ready;
-    thread_list_add (&ready_threads, thread);
+    thread->blocked_on = NULL;
+    thread->blocker_type = BlockerType_None;
+    thread_list_add (&ready_threads, &thread->local_list);
 }
 
 void thread_sleep (const uint32_t ticks)
@@ -314,35 +336,41 @@ void thread_sleep (const uint32_t ticks)
 /* Synchronized because timer interrupt handler calls this (interrupt disabled). */
 void thread_timer_tick (void)
 {
-    thread_t *sleeping = sleeping_threads;
+    tlistnode_t *sleeping = sleeping_threads;
     while (sleeping)
     {
-        thread_t * const check = sleeping;
+        thread_t * const thread = sleeping->thread;
         sleeping = sleeping->next;
-        kernel_assert (check->status == ThreadStatus_Sleeping,
+        kernel_assert (thread->status == ThreadStatus_Sleeping,
                        "thread_timer_tick(): Expected sleeping thread to have correct status");
 
-        if (check->wakeup_ticks <= timer_ticks)
+        if (thread->wakeup_ticks <= timer_ticks)
         {
-            thread_list_remove (&sleeping_threads, check);
-            check->status = ThreadStatus_Ready;
-            thread_list_add (&ready_threads, check);
+            thread_list_remove (&sleeping_threads, &thread->local_list);
+            thread->status = ThreadStatus_Ready;
+            thread_list_add (&ready_threads, &thread->local_list);
         }
     }
 }
 
 uint32_t thread_count (void)
 {
-    return total_floating_threads;
+    uint32_t count = 0;
+    const tlistnode_t *cur = all_threads;
+    while (cur)
+    {
+        cur = cur->next;
+        count++;
+    }
+    return count;
 }
-
 
 uint32_t thread_count_ready (void)
 {
     const bool interrupts = interrupt_disable ();
 
     uint32_t count = 0;
-    const thread_t *cur = ready_threads;
+    const tlistnode_t *cur = ready_threads;
     while (cur)
     {
         cur = cur->next;
@@ -358,7 +386,7 @@ uint32_t thread_count_sleeping (void)
     const bool interrupts = interrupt_disable ();
 
     uint32_t count = 0;
-    const thread_t *cur = sleeping_threads;
+    const tlistnode_t *cur = sleeping_threads;
     while (cur)
     {
         cur = cur->next;
@@ -374,7 +402,7 @@ uint32_t thread_count_zombie (void)
     const bool interrupts = interrupt_disable ();
 
     uint32_t count = 0;
-    const thread_t *cur = zombie_threads;
+    const tlistnode_t *cur = zombie_threads;
     while (cur)
     {
         cur = cur->next;
@@ -383,4 +411,47 @@ uint32_t thread_count_zombie (void)
 
     interrupt_restore (interrupts);
     return count;
+}
+
+thread_t *thread_get (const tid_t tid)
+{
+    tlistnode_t *node = all_threads;
+    while (node && node->thread->tid != tid)
+    {
+        node = node->next;
+    }
+    return node->thread;
+}
+
+void thread_debug_synch_dependencies ()
+{
+    tlistnode_t *node = all_threads;
+    while (node)
+    {
+        const thread_t *thread = node->thread;
+        if (thread->status == ThreadStatus_Blocked)
+        {
+            printf ("Thread %u is blocked on ", thread->tid);
+            if (thread->blocker_type == BlockerType_Mutex)
+            {
+                const mutex_t * const mutex = (mutex_t *) thread->blocked_on;
+                printf("Mutex at %p (Owner: %u)\n", mutex, mutex->holder->tid);
+            }
+            else if (thread->blocker_type == BlockerType_Semaphore)
+            {
+                const semaphore_t * const semaphore = (semaphore_t *) thread->blocked_on;
+                printf("Semaphore at %p\n", semaphore);
+            }
+            else if (thread->blocker_type == BlockerType_CondVar)
+            {
+                const condvar_t * const condvar = (condvar_t *) thread->blocked_on;
+                printf("Condition Variable at %p\n", condvar);
+            }
+            else
+            {
+                kernel_assert (false, "thread_debug_synch_dependences(): blocked thread is not blocked on synchronization primitive");
+            }
+        }
+        node = node->next;
+    }
 }

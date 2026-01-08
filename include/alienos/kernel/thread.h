@@ -27,9 +27,24 @@ typedef struct Thread
     void *stack_base;               /* Since we are using physical memory, we allocate the thread
                                        stack on the heap */
 
-    struct Thread *next;            /* Next thread in linked list */
-    struct Thread *prev;            /* Previous thread in linked list */
+    enum BlockerType
+    {
+        BlockerType_None,
+        BlockerType_Mutex,
+        BlockerType_Semaphore,
+        BlockerType_CondVar,
+    } blocker_type;                 /* Type of synchronization primitive this thread is blocked on */
+    void *blocked_on;               /* Pointer to synchronization primitive this thread is blocked on */
+
+    struct ThreadListNode {
+        struct Thread *thread;
+        struct ThreadListNode *next;
+        struct ThreadListNode *prev;
+    } all_list, local_list;         /* Various lists this thread can be a part of. all_list contains all allocated threads,
+                                       local_list is used for various uses like ready, blocked, sleeping, zombie queues. */
 } thread_t;
+
+typedef struct ThreadListNode tlistnode_t;
 
 extern thread_t *current_thread;
 
@@ -56,13 +71,19 @@ void thread_sleep (uint32_t ticks);
    and idle thread. */
 uint32_t thread_count (void);
 
-/* Count how many ready threads there are. Synchronized internally. */
+/* Count how many ready threads there are. Synchronized internally. TODO: make O(1). */
 uint32_t thread_count_ready (void);
 
-/* Count how many sleeping threads there are. Synchronized internally. */
+/* Count how many sleeping threads there are. Synchronized internally. TODO: make O(1). */
 uint32_t thread_count_sleeping (void);
 
-/* Count how many zombie threads there are. Synchronized internally. */
+/* Count how many zombie threads there are. Synchronized internally. TODO: make O(1). */
 uint32_t thread_count_zombie (void);
+
+/* Get thread by tid. */
+thread_t *thread_get (tid_t tid);
+
+/* Debug thread blocker dependencies. */
+void thread_debug_synch_dependencies ();
 
 #endif /* ALIENOS_KERNEL_KTHREAD_H */
