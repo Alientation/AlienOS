@@ -1,4 +1,7 @@
 #include "alienos/io/io.h"
+#include "alienos/kernel/synch.h"
+#include "alienos/kernel/kernel.h"
+#include "alienos/io/timer.h"
 
 #include <string.h>
 
@@ -16,12 +19,17 @@
 #define READ_MODEM_STATUS 6         /* Read modem status register. */
 #define SCRATCH 7                   /* Scratch register. */
 
+static mutex_t serial_locks[8] = {0};
+static bool serial_locks_initialized[8] = {0};
+
+/* Outputs a byte to COM port. Must be synchronized externally. */
 static void internal_io_outb (const enum COMPort port, const uint16_t offset, const uint8_t val)
 {
     const uint16_t port_addr = COMPortToAddr[port] + offset;
     asm volatile ("outb %0, %1" : : "a"(val), "Nd"(port_addr));
 }
 
+/* Reads a byte from COM port. Must be synchronized externally. */
 static uint8_t internal_io_inb (const enum COMPort port, const uint16_t offset)
 {
     const uint16_t port_addr = COMPortToAddr[port] + offset;
@@ -47,7 +55,11 @@ void io_serial_init (const enum COMPort port, const uint16_t divisor, const enum
     /* Set interrupt trigger level at 14 bytes and clear both transmit/receive FIFO buffers. */
     internal_io_outb (port, WRITE_FIFO_CONTROL, 0b11000111);
 
-    io_serial_printf (port, "Initialized COM%u port\n", (uint32_t) port);
+    /* Initialize the read/write lock. */
+    mutex_init (&serial_locks[port]);
+    serial_locks_initialized[port] = true;
+
+    unsafe_printf ("Initialized COM%u port\n", (uint32_t) port);
 }
 
 bool io_serial_data_ready (const enum COMPort port)
@@ -63,37 +75,77 @@ void io_serial_set_loopback (const enum COMPort port, const bool loopback)
 
 bool io_serial_nextinb (const enum COMPort port, uint8_t * const data)
 {
-    const uint32_t MAX_SPIN_ITERATIONS = 0xFFFF;
-    for (uint32_t i = 0; i < MAX_SPIN_ITERATIONS && !io_serial_data_ready (port); i++)
+    const uint32_t MAX_SPIN_TICKS = 0xFFFF;
+    const uint32_t END_TICKS = timer_ticks + MAX_SPIN_TICKS;
+
+    kernel_assert (serial_locks_initialized[port], "io_serial_nextinb(): Serial locks are not initialized");
+    mutex_acquire (&serial_locks[port]);
+    while (timer_ticks < END_TICKS)
     {
+        thread_yield ();
         continue;
     }
 
     if (!io_serial_data_ready (port))
     {
+        mutex_release (&serial_locks[port]);
         return false;
     }
 
     *data = io_serial_inb (port);
+    mutex_release (&serial_locks[port]);
     return true;
 }
 
 void io_serial_outstr (const enum COMPort port, const char * const str)
 {
+    kernel_assert (serial_locks_initialized[port], "io_serial_outstr(): Serial locks are not initialized");
+    mutex_acquire (&serial_locks[port]);
     io_writestr (io_outb_map[port], str);
+    mutex_release (&serial_locks[port]);
 }
 
 void io_serial_outint (const enum COMPort port, const int32_t d)
 {
+    kernel_assert (serial_locks_initialized[port], "io_serial_outint(): Serial locks are not initialized");
+    mutex_acquire (&serial_locks[port]);
     io_writeint (io_outb_map[port], d);
+    mutex_release (&serial_locks[port]);
 }
 
 void io_serial_outbool (const enum COMPort port, const bool b)
 {
+    kernel_assert (serial_locks_initialized[port], "io_serial_outbool(): Serial locks are not initialized");
+    mutex_acquire (&serial_locks[port]);
     io_writebool (io_outb_map[port], b);
+    mutex_release (&serial_locks[port]);
 }
 
+#include "alienos/io/interrupt.h"
 void io_serial_printf (const enum COMPort port, const char * const format, ...)
+{
+    /* Print the message before kernel panic. */
+    if (!interrupt_is_enabled ())
+    {
+        va_list params;
+        va_start (params, format);
+        io_printf (io_outb_map[port], format, params);
+        va_end (params);
+    }
+
+    kernel_assert (interrupt_is_enabled (), "io_serial_printf(): interrupts must be enabled");
+    kernel_assert (serial_locks_initialized[port], "io_serial_printf(): serial locks are not initialized");
+    mutex_acquire (&serial_locks[port]);
+
+    va_list params;
+    va_start (params, format);
+    io_printf (io_outb_map[port], format, params);
+    va_end (params);
+
+    mutex_release (&serial_locks[port]);
+}
+
+void io_serial_unsafe_printf (const enum COMPort port, const char * const format, ...)
 {
     va_list params;
     va_start (params, format);

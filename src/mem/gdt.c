@@ -149,7 +149,7 @@ gdt_init (void)
     /* Load Task Register. */
     tss_flush (segselector_init (SegmentTaskState, TableIndex_GDT, SegmentPrivilege_Ring0));
 
-    printf ("Initialized GDT\n");
+    unsafe_printf ("Initialized GDT\n");
 }
 
 SegmentSelector

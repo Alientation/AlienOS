@@ -16,7 +16,7 @@ struct test_mutex
 static void test_mutex_worker (void * const data)
 {
     struct test_mutex * const arg = (struct test_mutex *) data;
-    volatile uint32_t * const counter = &arg->counter;
+    uint32_t * const counter = &arg->counter;
     for (uint32_t i = 0; i < arg->kNumIterations; i++)
     {
         mutex_acquire (&arg->lock);

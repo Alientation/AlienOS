@@ -6,6 +6,9 @@
 #include "stdbool.h"
 #include "stdint.h"
 
+/* io_serial_printf() is not safe to use in an interrupt context since it is synchronized. */
+#undef printf
+
 /* IO port addresses for 8259 PIC. */
 #define PIC1 0x20
 #define PIC2 0xA0
@@ -250,7 +253,7 @@ static inline bool pic_check_spurious (const uint8_t irq)
 {
     if ((irq == IRQ_SPURIOUS_MASTER || irq == IRQ_SPURIOUS_SLAVE) && !(pic_read_isr () & (1 << irq)))
     {
-        printf ("Spurious IRQ %u\n", irq);
+        unsafe_printf ("Spurious IRQ %u\n", irq);
         if (irq == IRQ_SPURIOUS_SLAVE)
         {
             io_outb (PIC1_COMMAND, OCW2_EOI);
@@ -336,7 +339,7 @@ static void irq_handler (struct InterruptFrame * const frame)
 /* https://wiki.osdev.org/Interrupt_Service_Routines */
 void interrupt_handler (struct InterruptFrame * const frame)
 {
-    printf ("Interrupt %x (err: %x)\n", frame->intno, frame->errcode);
+    unsafe_printf ("Interrupt %x (err: %x)\n", frame->intno, frame->errcode);
 
     switch (frame->intno)
     {
@@ -461,5 +464,5 @@ void idt_init (void)
     /* Remap PIC IRQs into the IDT. */
     pic_remap (PIC1_OFFSET, PIC2_OFFSET);
 
-    printf ("Initialized IDT\n");
+    unsafe_printf ("Initialized IDT\n");
 }

@@ -161,41 +161,54 @@ void io_serial_init (enum COMPort port, uint16_t divisor, enum COMDataBits datab
 /* Whether the buffer contains received data. */
 bool io_serial_data_ready (enum COMPort port);
 
+/* Sets whether to loopback (write and read the same thing). */
 void io_serial_set_loopback (enum COMPort port, bool loopback);
 
 /* Read the next byte received by the port. Spins until we receive a byte or we reach max iterations.
-   Returns an error (false) if we hit max iterations. */
+   Returns an error (false) if we hit max iterations. Synchronized internally. */
 bool io_serial_nextinb (enum COMPort port, uint8_t *data);
 
-/* Write C string to serial port. */
+/* Write C string to serial port. Synchronized internally. */
 void io_serial_outstr (enum COMPort port, const char *str);
 
-/* Write int to serial port. */
+/* Write int to serial port port. Synchronized internally. */
 void io_serial_outint (enum COMPort port, int32_t d);
 
-/* Write bool to serial port. */
+/* Write bool to serial port. Synchronized internally. */
 void io_serial_outbool (enum COMPort port, bool b);
 
-/* Print format to a serial port. */
+/* Print format to a serial port. Synchronized internally. Not safe to be called from interrupt or
+   with interrupts disabled. */
 void io_serial_printf (enum COMPort port, const char *format, ...);
 
+/* Print format to a serial port. Synchronized internally. Not safe to be called from interrupt or
+   with interrupts disabled. */
 #define printf(...) io_serial_printf (COMPort_1, __VA_ARGS__)
 
-/* Write C string. */
+/* Unsynchronized printf, identical to io_serial_printf() but does not internally synchronize. Safe
+   to call from within an interrupt or with interrupts disabled. */
+void io_serial_unsafe_printf (enum COMPort port, const char *format, ...);
+
+/* Unsynchronized printf, identical to printf() but does not internally synchronize. Safe
+   to call from within an interrupt or with interrupts disabled. */
+#define unsafe_printf(...) io_serial_unsafe_printf (COMPort_1, __VA_ARGS__)
+
+/* Write C string. Must be synchronized externally. */
 void io_writestr (void (*output_char)(char), const char *str);
 
-/* Write integer. */
+/* Write integer. Must be synchronized externally. */
 void io_writeint (void (*output_char)(char), int32_t d);
 
-/* Write unsigned integer. */
+/* Write unsigned integer. Must be synchronized externally. */
 void io_writeuint (void (*output_char)(char), uint32_t d);
 
-/* Write pointer. */
+/* Write pointer. Must be synchronized externally. */
 void io_writeptr (void (*output_char)(char), const void *ptr);
 
-/* Write bool. */
+/* Write bool. Must be synchronized externally. */
 void io_writebool (void (*output_char)(char), bool b);
 
+/* Generic printf. Must be synchronized externally. */
 void io_printf (void (*output_char)(char), const char *format, va_list params);
 
 #endif /* ALIENOS_IO_IO_H */

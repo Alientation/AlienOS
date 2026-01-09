@@ -134,7 +134,7 @@ static void clean_zombies ()
         if (thread != current_thread)
         {
             /* Free up space. */
-            printf ("Cleaning up Thread %u\n", thread->tid);
+            unsafe_printf ("Cleaning up Thread %u\n", thread->tid);
             thread_list_remove (&zombie_threads, &thread->local_list);
             thread_list_remove (&all_threads, &thread->all_list);
             kfree (thread->stack_base);
@@ -235,7 +235,7 @@ static void thread_exit (void)
 {
     interrupt_disable ();
 
-    printf ("Thread %u exiting\n", current_thread->tid);
+    unsafe_printf ("Thread %u exiting\n", current_thread->tid);
     current_thread->status = ThreadStatus_Zombie;
     thread_yield ();
 
@@ -301,7 +301,7 @@ static thread_t *internal_thread_init (void (* const entry_point) (void *arg), v
     thread_list_add (&all_threads, &thread->all_list);
     mutex_release (&all_threads_lock);
 
-    printf ("Creating thread %u\n", thread->tid);
+    unsafe_printf ("Creating thread %u\n", thread->tid);
     return thread;
 }
 

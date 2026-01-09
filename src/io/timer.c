@@ -125,7 +125,7 @@ void timer_init (void)
 
     irq_clear_mask (IRQ_PIT);
 
-    printf ("Initialized timer\n");
+    unsafe_printf ("Initialized timer\n");
     interrupt_restore (interrupt);
 }
 
@@ -154,12 +154,14 @@ void timer_set_reload (const uint16_t reload_value)
 }
 
 extern void thread_timer_tick (void);
+
+/* Called from the timer interrupt. */
 void timer_callback ()
 {
     static bool first_tick = true;
     if (first_tick)
     {
-        printf ("Timer Alive\n");
+        unsafe_printf ("Timer Alive\n");
     }
     timer_ticks++;
     first_tick = false;

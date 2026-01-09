@@ -6,6 +6,7 @@
     [ ] FEATURE: enable specific tests (perhaps by name)
 [ ] External Unit Tests
     [ ] Serial IO, ensure output is sent out correctly
+    [ ] Stress test synchronized io (printf)
 [ ] Terminal scrolling
     - With dynamic memory, should be easy
 [x] Interrupt Descriptor Tables
@@ -16,7 +17,7 @@
     [ ] Scheduler
     [ ] Synchronization
         [x] Primitives
+        [ ] Synchronize kernel with these
         [ ] Priority/Priority Donation
 [ ] Virtual Memory
 [ ] File System
-[ ] Device Drivers

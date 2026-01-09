@@ -37,7 +37,7 @@ void kmalloc_disabledebug (void)
 
 #ifdef ALIENOS_TEST
 #define DEBUG(...) \
-    do { if (enable_debug_print) printf (__VA_ARGS__); } while (0)
+    do { if (enable_debug_print) unsafe_printf (__VA_ARGS__); } while (0)
 #else
 #define DEBUG(...) ;
 #endif

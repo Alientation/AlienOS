@@ -59,7 +59,8 @@ void kernel_main(const unsigned int magic, const multiboot_info_t * const mbinfo
 	/* Set up repeating timer interrupts. */
 	timer_init ();
 
-	/* Initialize the main thread. */
+	/* Initialize the main thread. TODO: WE NEED TO ENSURE THAT ALL IO_SERIAL_PRINTFs AND RELATED
+	   SYNCHRONIZED FUNCTIONS ARE NOT CALLED BEFORE NOW. that means replacing any printf() with unsafe_printf(). */
 	thread_main_init ();
 
 	/* ====== INITIALIZATION DONE ====== */
@@ -80,9 +81,9 @@ void kernel_main(const unsigned int magic, const multiboot_info_t * const mbinfo
 
 static void internal_kernel_panic (const char * const format, va_list params)
 {
-	printf ("KERNAL PANIC!!!\n");
+	unsafe_printf ("KERNAL PANIC!!!\n");
 	io_printf (io_com1_outb, format, params);
-	printf ("\n");
+	unsafe_printf ("\n");
 	cpu_halt ();
 }
 
