@@ -5,9 +5,9 @@ void unit_tests (void)
     printf ("Running Unit Tests\n");
 
     struct UnitTestsResult results = {0};
-    // kmalloc_test (&results);
-    // io_test (&results);
-    // thread_test (&results);
+    kmalloc_test (&results);
+    io_test (&results);
+    thread_test (&results);
     synch_test (&results);
 
     printf ("Completed Unit Tests\n%u total tests, %u failed\n",

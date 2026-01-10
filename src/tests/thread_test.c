@@ -6,7 +6,7 @@
 static semaphore_t start;
 static semaphore_t done;
 
-void thread_test_loop (void * const data)
+void thread_test_loop ()
 {
 	semaphore_down (&start);
 	for (uint32_t i = 0; i < 3; i++)

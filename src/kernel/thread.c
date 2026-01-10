@@ -22,7 +22,9 @@ static tlistnode_t *zombie_threads = NULL;
 static mutex_t local_threads_lock;
 
 thread_t *current_thread = NULL;
-static thread_t *idle_thread = NULL;
+static thread_t _idle_thread = {0};
+static uint8_t _idle_thread_stack[THREAD_STACK_SPACE] = {0};
+static thread_t *idle_thread = &_idle_thread;
 
 /* Print threads in list. Must be synchronized externally. */
 static void print_threads (const tlistnode_t *head)
@@ -235,6 +237,8 @@ static void thread_exit (void)
 {
     interrupt_disable ();
 
+    kernel_assert (current_thread != idle_thread, "thread_exit: idle thread exiting");
+
     unsafe_printf ("Thread %u exiting\n", current_thread->tid);
     current_thread->status = ThreadStatus_Zombie;
     thread_yield ();
@@ -244,18 +248,14 @@ static void thread_exit (void)
 }
 
 /* Allocate and initialize a thread. */
-static thread_t *internal_thread_init (void (* const entry_point) (void *arg), void * const arg)
+static void internal_thread_init (void (* const entry_point) (void *arg), void * const arg,
+                                  void * const stack_base, void *stackptr, thread_t * const thread)
 {
     /* TID 0 reserved for initial main thread. */
     static uint32_t next_tid = 1;
     kernel_assert (next_tid != 0, "internal_thread_init(): detected tid overflow");
 
-    /* Allocate space for stack and thread. */
-    uint32_t * const stack_base = kcalloc (1, THREAD_STACK_SPACE);
-    uint32_t *stack = (uint32_t *) (((uintptr_t) stack_base) + THREAD_STACK_SPACE);
-    thread_t * const thread = kcalloc (1, sizeof (thread_t));
-
-    kernel_assert (stack_base && thread, "internal_thread_init(): kcalloc() failed");
+    uint32_t *stack = (uint32_t *) stackptr;
 
     /* Entry point frame. */
     *(--stack) = (uint32_t) arg;                /* Entry function argument */
@@ -297,12 +297,7 @@ static thread_t *internal_thread_init (void (* const entry_point) (void *arg), v
     thread_listnode_init (&thread->all_list, thread);
     thread_listnode_init (&thread->local_list, thread);
 
-    mutex_acquire (&all_threads_lock);
-    thread_list_add (&all_threads, &thread->all_list);
-    mutex_release (&all_threads_lock);
-
     unsafe_printf ("Creating thread %u\n", thread->tid);
-    return thread;
 }
 
 void thread_main_init (void)
@@ -317,7 +312,7 @@ void thread_main_init (void)
 
     /* Initialize main thread as whoever called this. At this point no other thread should have
        been created. */
-    thread_t * const main_thread = kcalloc (1, sizeof (thread_t));
+    thread_t * const main_thread = _kcalloc_unsafe (1, sizeof (thread_t));
     kernel_assert (main_thread, "thread_main_init(): kcalloc() failed");
 
     main_thread->tid = 0;
@@ -335,13 +330,26 @@ void thread_main_init (void)
     kernel_assert (current_thread->tid == 0, "thread_main_init(): expect main thread to have tid 0");
 
     /* Create the idle thread. */
-    idle_thread = internal_thread_init ((void (*)(void *)) cpu_idle_loop, NULL);
+    internal_thread_init ((void (*)(void *)) cpu_idle_loop, NULL, _idle_thread_stack,
+                          &_idle_thread_stack[THREAD_STACK_SPACE], idle_thread);
+    thread_list_add (&all_threads, &idle_thread->all_list);
     kernel_assert (idle_thread->tid == 1, "thread_main_init(): expect idle thread to have tid 1");
 }
 
 thread_t *thread_create_arg (void (* const entry_point) (void *), void * const arg)
 {
-    thread_t * const thread = internal_thread_init (entry_point, arg);
+    /* Allocate space for stack and thread. */
+    void * const stack_base = kcalloc (1, THREAD_STACK_SPACE);
+    void * const stack = (void *) (((uintptr_t) stack_base) + THREAD_STACK_SPACE);
+    thread_t * const thread = kcalloc (1, sizeof (thread_t));
+
+    kernel_assert (stack_base && thread, "internal_thread_init(): kcalloc() failed");
+
+    internal_thread_init (entry_point, arg, stack_base, stack, thread);
+
+    mutex_acquire (&all_threads_lock);
+    thread_list_add (&all_threads, &thread->all_list);
+    mutex_release (&all_threads_lock);
 
     mutex_acquire (&local_threads_lock);
     thread_list_add (&ready_threads, &thread->local_list);

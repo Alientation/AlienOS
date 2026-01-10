@@ -60,6 +60,8 @@ void semaphore_init (semaphore_t * const sem, const int32_t initial_count)
 
 void semaphore_down (semaphore_t * const sem)
 {
+    kernel_assert (current_thread, "semaphore_down(): current thread is NULL, probably called before thread initialization");
+
     const bool interrupts = interrupt_disable ();
 
     /* Block until a resource becomes available. */
@@ -84,6 +86,8 @@ void semaphore_down (semaphore_t * const sem)
 
 bool semaphore_try_down (semaphore_t * const sem)
 {
+    kernel_assert (current_thread, "semaphore_try_down(): current thread is NULL, probably called before thread initialization");
+
     const bool interrupts = interrupt_disable ();
     bool success = false;
 
@@ -100,6 +104,8 @@ bool semaphore_try_down (semaphore_t * const sem)
 
 void semaphore_up (semaphore_t * const sem)
 {
+    kernel_assert (current_thread, "semaphore_up(): current thread is NULL, probably called before thread initialization");
+
     const bool interrupts = interrupt_disable ();
 
     /* Allow other threads to claim resource. */
@@ -125,6 +131,8 @@ void mutex_init (mutex_t * const mutex)
 
 void mutex_acquire (mutex_t * const mutex)
 {
+    kernel_assert (current_thread, "mutex_acquire(): current thread is NULL, probably called before thread initialization");
+
     const bool interrupts = interrupt_disable ();
 
     /* Already holds the lock, add to recursion count so we release appropriately. */
@@ -148,6 +156,8 @@ void mutex_acquire (mutex_t * const mutex)
 
 bool mutex_try_acquire (mutex_t * const mutex)
 {
+    kernel_assert (current_thread, "mutex_try_acquire(): current thread is NULL, probably called before thread initialization");
+
     /* We already hold it. */
     if (mutex->holder == current_thread)
     {
@@ -168,6 +178,8 @@ bool mutex_try_acquire (mutex_t * const mutex)
 
 void mutex_release (mutex_t * const mutex)
 {
+    kernel_assert (current_thread, "mutex_release(): current thread is NULL, probably called before thread initialization");
+
     const bool interrupts = interrupt_disable ();
     kernel_assert (mutex->holder == current_thread, "mutex_release(): Owner thread must release the lock");
 
@@ -193,6 +205,8 @@ void condvar_init (condvar_t * const condvar)
 
 void condvar_wait (condvar_t * const cond, mutex_t * const mutex)
 {
+    kernel_assert (current_thread, "condvar_wait(): current thread is NULL, probably called before thread initialization");
+
     const bool interrupts = interrupt_disable ();
 
     /* Wait on a signal, releasing the lock. */
@@ -211,6 +225,8 @@ void condvar_wait (condvar_t * const cond, mutex_t * const mutex)
 
 void condvar_signal (condvar_t * const cond)
 {
+    kernel_assert (current_thread, "condvar_signal(): current thread is NULL, probably called before thread initialization");
+
     const bool interrupts = interrupt_disable ();
 
     /* Unblock the first in the queue. */
@@ -225,6 +241,8 @@ void condvar_signal (condvar_t * const cond)
 
 void condvar_broadcast (condvar_t * const cond)
 {
+    kernel_assert (current_thread, "condvar_broadcast(): current thread is NULL, probably called before thread initialization");
+
     const bool interrupts = interrupt_disable ();
 
     /* Unlock all in the queue. */

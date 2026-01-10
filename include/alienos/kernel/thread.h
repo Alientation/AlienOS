@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define THREAD_STACK_SPACE (1 << 14)
+#define THREAD_STACK_SPACE (1 << 16)
 
 typedef uint32_t tid_t;
 struct Thread;

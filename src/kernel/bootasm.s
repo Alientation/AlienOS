@@ -16,7 +16,7 @@
 .section .bss
 .align 16
 stack_bottom:
-    .skip 16384
+    .skip 65536
 stack_top:
 
 
@@ -49,4 +49,3 @@ cpu_halt:
     hlt                             /* Halt CPU */
     jmp .loop                       /* Jump back if non-maskable interrupts wakes the CPU */
 .size cpu_halt, . - cpu_halt
-

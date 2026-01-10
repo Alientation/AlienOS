@@ -3,6 +3,8 @@
     [ ] Serial IO
     [x] Threads
     [x] Synchronization
+    [ ] thread api synchronization
+    [ ] kmalloc api synchronization
     [ ] FEATURE: enable specific tests (perhaps by name)
 [ ] External Unit Tests
     [ ] Serial IO, ensure output is sent out correctly

@@ -1,6 +1,8 @@
 #include "alienos/mem/kmalloc.h"
 #include "alienos/kernel/kernel.h"
 #include "alienos/io/io.h"
+#include "alienos/io/interrupt.h"
+#include "alienos/kernel/synch.h"
 
 #include <stdbool.h>
 
@@ -56,10 +58,14 @@ typedef struct __attribute__((packed)) KMBlockHeader
 /* List of free (unallocated) blocks in heap. */
 static km_block_header_t *free_list = NULL;
 
+/* Lock access to free list. */
+static mutex_t free_list_lock;
+
+/* Should be called during init with interrupts disabled. */
 static bool internal_read_multibootinfo (const multiboot_info_t *const mbinfo)
 {
     /* Panic if mmap is not available. */
-    kernel_assert (mbinfo->flags & MULTIBOOT_INFO_MEM_MAP, "kmalloc_init() - mmap unavailable.");
+    kernel_assert (mbinfo->flags & MULTIBOOT_INFO_MEM_MAP, "kmalloc_init(): mmap unavailable");
 
     bool found = false;
     multiboot_memory_map_t *mmap = (multiboot_memory_map_t *) mbinfo->mmap_addr;
@@ -91,10 +97,11 @@ static bool internal_read_multibootinfo (const multiboot_info_t *const mbinfo)
         mmap = (multiboot_memory_map_t *) ((uint32_t) mmap + mmap->size + sizeof (mmap->size));
     }
 
-    kernel_assert (found, "kmalloc_init() - Failed to find valid memory block.");
+    kernel_assert (found, "kmalloc_init(): failed to find valid memory block");
     return true;
 }
 
+/* Get size of block (include header size). */
 static inline size_t km_getsize (const km_block_header_t * const block)
 {
     return block->metadata & ~(0b1111);
@@ -106,26 +113,31 @@ static inline void km_setsize (km_block_header_t * const block, const size_t siz
     block->metadata = (block->metadata & (0b1111)) | size;
 }
 
+/* Return if the block is allocated. */
 static inline bool km_isalloc (const km_block_header_t * const block)
 {
     return block->metadata & KMALLOC_ALLOC_BIT;
 }
 
+/* Set the block to be allocated. */
 static inline void km_setalloc (km_block_header_t * const block)
 {
     block->metadata = (block->metadata & ~KMALLOC_ALLOC_BIT) | KMALLOC_ALLOC_BIT;
 }
 
+/* Set the block to be unallocated. */
 static inline void km_clearalloc (km_block_header_t * const block)
 {
     block->metadata = (block->metadata & ~KMALLOC_ALLOC_BIT);
 }
 
+/* Check if the block has a valid magic number. */
 static inline bool km_checkmagic (const km_block_header_t * const block)
 {
     return block->pad[0] == KMALLOC_MAGIC;
 }
 
+/* Set the block's magic number. */
 static inline void km_setmagic (km_block_header_t * const block)
 {
     block->pad[0] = KMALLOC_MAGIC;
@@ -140,7 +152,7 @@ static inline void km_initblock (km_block_header_t * const block, const size_t s
 }
 
 /* Checks if a block in the free list can be coalesced with it's neighbor. Free list is
-   memory ordered. */
+   memory ordered. Must be synchronized externally. */
 static void km_coalesce (km_block_header_t * const block)
 {
     if (block->next && ((uintptr_t) block) + km_getsize (block) == (uintptr_t) block->next)
@@ -150,7 +162,7 @@ static void km_coalesce (km_block_header_t * const block)
     }
 }
 
-/* Inserts a block into free list, sorted by memory address. */
+/* Inserts a block into free list, sorted by memory address. Must be synchronized externally. */
 static void km_insert (km_block_header_t * const block)
 {
     if (!block)
@@ -176,12 +188,12 @@ static void km_insert (km_block_header_t * const block)
         next = next->next;
     }
 
-    kernel_assert (prev->next == next, "km_insert() - Mismatch prev/next (%x,%x).",
+    kernel_assert (prev->next == next, "km_insert(): mismatch prev/next (%x,%x)",
                    (uintptr_t) prev->next, (uintptr_t) next);
     kernel_assert (((uintptr_t) prev) + km_getsize (prev) <= (uintptr_t) block,
-                   "km_insert() - Prev is not before block (%x,%x).", (uintptr_t) prev, (uintptr_t) block);
+                   "km_insert(): prev is not before block (%x,%x)", (uintptr_t) prev, (uintptr_t) block);
     kernel_assert (next == NULL || ((uintptr_t) block) + km_getsize (block) <= (uintptr_t) next,
-                   "km_insert() - Next is not after block (%x,%x).", (uintptr_t) block, (uintptr_t) next);
+                   "km_insert(): next is not after block (%x,%x)", (uintptr_t) block, (uintptr_t) next);
 
     /* Insert block in between prev and next blocks in the free list. */
     block->next = next;
@@ -191,7 +203,8 @@ static void km_insert (km_block_header_t * const block)
 }
 
 /* Creates a new block of 'size' bytes (including header) to add to kernel heap. Does not insert into
-   free list. To allocate a block to satisfy request, pass in 'reqsize + 16' to account for size of header. */
+   free list. To allocate a block to satisfy request, pass in 'reqsize + 16' to account for size of header.
+   Must be synchronized externally. */
 static km_block_header_t *km_extend (const size_t size)
 {
     const size_t block_size = KMALLOC_ALIGN (size, KMALLOC_PAGESIZE);
@@ -201,7 +214,7 @@ static km_block_header_t *km_extend (const size_t size)
     /* We reached the limit of the safe memory region. Virtual memory will mitigate this issue. */
     if (kheap_end > kheap_max_end)
     {
-        kernel_panic ("km_extend() - Out of memory.");
+        kernel_panic ("km_extend(): out of memory");
     }
 
     km_block_header_t * const block = (km_block_header_t *) block_begin;
@@ -213,21 +226,25 @@ static km_block_header_t *km_extend (const size_t size)
 
 void kmalloc_init (const multiboot_info_t * const mbinfo)
 {
-    kernel_assert (sizeof (km_block_header_t) == 16, "kmalloc_init() - KMallocBlockHeader is not 16 bytes.");
+    /* Called during kernel init, interrupts must be off. */
+    kernel_assert (!interrupt_is_enabled (), "kmalloc_init(): interrupts are enabled");
+    kernel_assert (sizeof (km_block_header_t) == 16, "kmalloc_init(): km_block_header_t is not 16 bytes");
 
     static bool init = false;
-    kernel_assert (!init, "kmalloc_init() - Already initialized.");
+    kernel_assert (!init, "kmalloc_init(): already initialized");
     init = true;
 
-    kernel_assert (internal_read_multibootinfo (mbinfo), "kmalloc_init() - Failed to read multiboot info.");
+    kernel_assert (internal_read_multibootinfo (mbinfo), "kmalloc_init(): failed to read multiboot info");
 
     kheap_begin = KMALLOC_ALIGN ((uintptr_t) &kernel_end, KMALLOC_PAGESIZE);
     kheap_end = kheap_begin;
     km_insert (km_extend (KMALLOC_HEAP_INIT_SIZE));
     DEBUG ("Kernal Heap: [%x, %x] (MAX %x)\n", kheap_begin, kheap_end, kheap_max_end);
+    mutex_init (&free_list_lock);
 }
 
-/* Find first block to satisfy request size. Removes from the free list if found, otherwise extends. */
+/* Find first block to satisfy request size. Removes from the free list if found, otherwise extends. Must
+   be synchronized externally. */
 static km_block_header_t *km_find (const size_t size)
 {
     km_block_header_t *prev = NULL;
@@ -257,7 +274,8 @@ static km_block_header_t *km_find (const size_t size)
     return cur;
 }
 
-/* Splits an unallocated block into two parts, returns the portion of 'size' bytes. */
+/* Splits an unallocated block into two parts, returns the portion of 'size' bytes. Must be
+   externally. */
 static km_block_header_t *km_split (km_block_header_t * const block, const size_t size)
 {
     /* Not enough extra space to justify split. */
@@ -278,7 +296,19 @@ static km_block_header_t *km_split (km_block_header_t * const block, const size_
     return block;
 }
 
+// #define mutex_acquire(d) ;
+// #define mutex_release(d) ;
+
 void *kmalloc (const size_t size)
+{
+    unsafe_printf ("ALLOCATING\n");
+    mutex_acquire (&free_list_lock);
+    void * const ptr = _kmalloc_unsafe (size);
+    mutex_release (&free_list_lock);
+    return ptr;
+}
+
+void *_kmalloc_unsafe (const size_t size)
 {
     const size_t target_size = KMALLOC_ALIGN (size + sizeof (km_block_header_t), KMALLOC_ALIGNMENT);
     km_block_header_t *block = km_find (target_size);
@@ -298,8 +328,17 @@ void *kmalloc (const size_t size)
 
 void *kcalloc (const size_t nelems, const size_t elemsize)
 {
+    unsafe_printf ("CALLOCATING\n");
+    mutex_acquire (&free_list_lock);
+    void * const ptr = _kcalloc_unsafe (nelems, elemsize);
+    mutex_release (&free_list_lock);
+    return ptr;
+}
+
+void *_kcalloc_unsafe (const size_t nelems, const size_t elemsize)
+{
     const size_t bytes = nelems * elemsize;
-    uint8_t *mem = (uint8_t *) kmalloc (bytes);
+    uint8_t *mem = (uint8_t *) _kmalloc_unsafe (bytes);
     for (size_t i = 0; i < bytes; i++)
     {
         mem[i] = 0;
@@ -310,15 +349,24 @@ void *kcalloc (const size_t nelems, const size_t elemsize)
 
 void *krealloc (void * const ptr, const size_t size)
 {
+    mutex_acquire (&free_list_lock);
+    void * const new_ptr = _krealloc_unsafe (ptr, size);
+    mutex_release (&free_list_lock);
+    return new_ptr;
+}
+
+void *_krealloc_unsafe (void * const ptr, const size_t size)
+{
     /* If ptr is NULL, behaves like kmalloc(). */
     if (!ptr)
     {
-        return kmalloc (size);
+        void * const new_ptr = _kmalloc_unsafe (size);
+        return new_ptr;
     }
     else if (size == 0)
     {
         /* If ptr is not NULL but size is 0, behaves like kfree(). */
-        kfree (ptr);
+        _kfree_unsafe (ptr);
         return NULL;
     }
 
@@ -367,7 +415,7 @@ void *krealloc (void * const ptr, const size_t size)
     }
 
     /* Allocate new memory block. */
-    uint8_t * const new_ptr = kmalloc (size);
+    uint8_t * const new_ptr = _kmalloc_unsafe (size);
     if (!new_ptr)
     {
         return NULL;
@@ -378,12 +426,18 @@ void *krealloc (void * const ptr, const size_t size)
     {
         new_ptr[i] = ((uint8_t *) ptr)[i];
     }
-    kfree (ptr);
-
+    _kfree_unsafe (ptr);
     return (void *) new_ptr;
 }
 
 void kfree (void * const ptr)
+{
+    mutex_acquire (&free_list_lock);
+    _kfree_unsafe (ptr);
+    mutex_release (&free_list_lock);
+}
+
+void _kfree_unsafe (void * const ptr)
 {
     if (!ptr)
     {
@@ -403,6 +457,7 @@ void kfree (void * const ptr)
 
 void kmalloc_printdebug (void)
 {
+    mutex_acquire (&free_list_lock);
     DEBUG ("Kernel Heap: %u Allocations, %u Releases\n",
                       kmalloc_stats.allocation_cnt, kmalloc_stats.free_cnt);
 
@@ -417,6 +472,7 @@ void kmalloc_printdebug (void)
               km_isalloc (cur), km_checkmagic (cur), km_getsize (cur));
         cur = cur->next;
     }
+    mutex_release (&free_list_lock);
 }
 
 struct KMStats kmalloc_getstats (void)

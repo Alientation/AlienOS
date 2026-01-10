@@ -367,7 +367,7 @@ void interrupt_handler (struct InterruptFrame * const frame)
             break;
 
         default:
-            kernel_panic ("Invalid Interrupt Number");
+            kernel_panic ("Invalid Interrupt Number %u\n", frame->intno);
             break;
     }
 }
